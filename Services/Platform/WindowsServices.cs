@@ -23,6 +23,7 @@ public class WindowsLogService : ILogService
 public class WindowsExecutionService : IExecutionService
 {
     private readonly ILogger<WindowsExecutionService> _logger;
+    private static int _lastProcessId = 0; // Make static to persist across service instances
 
     public WindowsExecutionService(ILogger<WindowsExecutionService> logger)
     {
@@ -91,6 +92,7 @@ Working Directory: C:\Windows\System32";
             }
 
             var pid = process.Id;
+            _lastProcessId = pid; // Store the last process ID for kill functionality
             _logger.LogInformation("Process started successfully with PID: {Pid}", pid);
 
             // Don't wait for the process to exit - just return the PID
@@ -106,6 +108,41 @@ Working Directory: C:\Windows\System32";
         {
             _logger.LogError(ex, "Error executing malware: {FilePath}", filePath);
             return (false, 0, ex.Message);
+        }
+    }
+
+    public async Task<bool> KillLastExecutionAsync()
+    {
+        try
+        {
+            if (_lastProcessId == 0)
+            {
+                _logger.LogWarning("No process to kill - no last execution found");
+                return false;
+            }
+
+            _logger.LogInformation("Attempting to kill process with PID: {Pid}", _lastProcessId);
+
+            try
+            {
+                var process = Process.GetProcessById(_lastProcessId);
+                process.Kill();
+                await process.WaitForExitAsync();
+                _logger.LogInformation("Successfully killed process with PID: {Pid}", _lastProcessId);
+                _lastProcessId = 0; // Reset after successful kill
+                return true;
+            }
+            catch (ArgumentException)
+            {
+                _logger.LogWarning("Process with PID {Pid} not found - may have already exited", _lastProcessId);
+                _lastProcessId = 0; // Reset since process doesn't exist
+                return true; // Consider this a success since the process is gone
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error killing process with PID: {Pid}", _lastProcessId);
+            return false;
         }
     }
 }

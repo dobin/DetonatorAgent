@@ -140,4 +140,38 @@ public class ExecuteController : ControllerBase
             });
         }
     }
+
+    [HttpPost("kill")]
+    public async Task<ActionResult<KillResponse>> KillLastExecution()
+    {
+        try
+        {
+            _logger.LogInformation("Kill request received");
+            
+            var success = await _executionService.KillLastExecutionAsync();
+            
+            if (!success)
+            {
+                return StatusCode(500, new KillResponse
+                {
+                    Status = "error",
+                    Message = "Failed to kill last execution"
+                });
+            }
+
+            return Ok(new KillResponse
+            {
+                Status = "ok"
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in /api/kill");
+            return StatusCode(500, new KillResponse
+            {
+                Status = "error",
+                Message = "Internal server error"
+            });
+        }
+    }
 }

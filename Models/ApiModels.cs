@@ -19,6 +19,12 @@ public class ExecuteFileResponse
     public string? Message { get; set; }
 }
 
+public class KillResponse
+{
+    public string Status { get; set; } = string.Empty;
+    public string? Message { get; set; }
+}
+
 public class ApiResponse<T>
 {
     public bool Success { get; set; }
