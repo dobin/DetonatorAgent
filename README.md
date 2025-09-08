@@ -40,26 +40,21 @@ dotnet run
 
 The API will be available at:
 - HTTP: http://localhost:5000
-- HTTPS: https://localhost:5001
-- Swagger UI: https://localhost:5001/swagger
+- Swagger UI: https://localhost:5000/swagger
 
 ## Example Usage
 
-### Execute a file
+Start malware:
 ```bash
-curl -X POST "https://localhost:5001/api/execute/exec" \
-  -H "Content-Type: multipart/form-data" \
-  -F "file=@malware.exe" \
-  -F "path=C:\RedEdr\data\" \
-  -F "fileargs=--verbose"
+curl.exe -X POST http://localhost:5000/api/execute/exec -F "file=@c:\tools\psexec64.exe" -F "path=C:\temp\" -F "fileargs=--help"
 ```
 
-### Get EDR logs
+Get the EDR logs:
 ```bash
 curl "https://localhost:5001/api/logs/edr"
 ```
 
-### Check resource lock
+kill it:
 ```bash
-curl "https://localhost:5001/api/lock/status"
+curl.exe -s -X POST http://localhost:5000/api/execute/kill 
 ```
