@@ -1,5 +1,12 @@
 namespace DetonatorAgent.Services;
 
+public interface ILockService
+{
+    bool IsInUse { get; }
+    bool TryAcquireLock();
+    void ReleaseLock();
+}
+
 public interface ILogService
 {
     Task<string> GetLogsAsync();

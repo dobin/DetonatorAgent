@@ -34,6 +34,17 @@ public class ExecutionLogsResponse
     public string Stderr { get; set; } = string.Empty;
 }
 
+public class LockStatusResponse
+{
+    public bool InUse { get; set; }
+}
+
+public class LockErrorResponse
+{
+    public string Status { get; set; } = "error";
+    public string Message { get; set; } = string.Empty;
+}
+
 public class ApiResponse<T>
 {
     public bool Success { get; set; }

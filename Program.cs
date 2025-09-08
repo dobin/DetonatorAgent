@@ -8,6 +8,9 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+// Register lock service as singleton to maintain state across requests
+builder.Services.AddSingleton<ILockService, LockService>();
+
 // Register platform-specific services
 if (OperatingSystem.IsWindows())
 {
