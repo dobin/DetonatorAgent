@@ -7,11 +7,6 @@ public interface ILockService
     void ReleaseLock();
 }
 
-public interface ILogService
-{
-    Task<string> GetLogsAsync();
-}
-
 public interface IExecutionService
 {
     Task<bool> WriteMalwareAsync(string filePath, byte[] content);

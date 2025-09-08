@@ -8,46 +8,17 @@ namespace DetonatorAgent.Controllers;
 [Route("api/[controller]")]
 public class LogsController : ControllerBase
 {
-    private readonly ILogService _logService;
     private readonly IEdrService _edrService;
     private readonly IExecutionService _executionService;
     private readonly IAgentLogService _agentLogService;
     private readonly ILogger<LogsController> _logger;
 
-    public LogsController(ILogService logService, IEdrService edrService, IExecutionService executionService, IAgentLogService agentLogService, ILogger<LogsController> logger)
+    public LogsController(IEdrService edrService, IExecutionService executionService, IAgentLogService agentLogService, ILogger<LogsController> logger)
     {
-        _logService = logService;
         _edrService = edrService;
         _executionService = executionService;
         _agentLogService = agentLogService;
         _logger = logger;
-    }
-
-    [HttpGet]
-    public async Task<ActionResult<ApiResponse<string>>> GetLogs()
-    {
-        try
-        {
-            _logger.LogInformation("Retrieving logs from {Platform}", Environment.OSVersion.Platform);
-            
-            var logs = await _logService.GetLogsAsync();
-            
-            return Ok(new ApiResponse<string>
-            {
-                Success = true,
-                Data = logs
-            });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error retrieving logs");
-            
-            return StatusCode(500, new ApiResponse<string>
-            {
-                Success = false,
-                Error = "Failed to retrieve logs"
-            });
-        }
     }
 
     [HttpGet("edr")]
