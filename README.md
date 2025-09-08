@@ -1,64 +1,40 @@
 # DetonatorAgent
 
-A cross-platform ASP.NET Core Web API for log retrieval and command execution.
+A cross-platform ASP.NET Core Web API for malware execution, log collection, and EDR testing.
 
 ## Features
 
-- **Cross-platform support**: Runs on both Windows and Linux
-- **Platform-specific log retrieval**: 
-  - Windows: Event Log integration (ready for implementation)
-  - Linux: File-based log reading (ready for implementation)
-- **Command execution**: OS-specific command execution capabilities
-- **REST API**: Simple endpoints for logs and execution
+- **File execution**: Upload and execute file
+- **Multi-platform logging**: System logs, EDR logs, execution logs, and agent logs
+- **Process management**: Execute and kill processes with PID tracking
+- **Resource locking**: Reserve the agent for a user for some time
+- **EDR integration**: Retrieve the AV/EDR logs
 - **Swagger documentation**: Built-in API documentation
 
 ## API Endpoints
 
-### GET /api/logs
-Retrieves system logs based on the current platform.
+### Execute Controller
+- **POST /api/execute/exec** - Upload and execute a file
+- **POST /api/execute/kill** - Kill the last executed process
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": "log entries...",
-  "error": null,
-  "timestamp": "2025-09-08T10:30:00Z"
-}
-```
+### Logs Controller
+- **GET /api/logs/edr** - Get EDR logs with version info
+- **GET /api/logs/execution** - Get execution logs (PID, stdout, stderr)
+- **GET /api/logs/agent** - Get agent internal logs
+- **DELETE /api/logs/agent** - Clear agent logs
 
-### POST /api/execute
-Executes a command on the current platform.
-
-**Request:**
-```json
-{
-  "command": "dir" // Windows example
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": "command output...",
-  "error": null,
-  "timestamp": "2025-09-08T10:30:00Z"
-}
-```
+### Lock Controller
+- **POST /api/lock/acquire** - Acquire resource lock
+- **POST /api/lock/release** - Release resource lock  
+- **GET /api/lock/status** - Check lock status
 
 ## Running the Application
 
 ### Prerequisites
 - .NET 8.0 SDK
 
-### Windows
+### Start the API
 ```powershell
-dotnet run
-```
-
-### Linux
-```bash
 dotnet run
 ```
 
@@ -67,24 +43,23 @@ The API will be available at:
 - HTTPS: https://localhost:5001
 - Swagger UI: https://localhost:5001/swagger
 
-## Architecture
+## Example Usage
 
-The application uses dependency injection to provide platform-specific implementations:
+### Execute a file
+```bash
+curl -X POST "https://localhost:5001/api/execute/exec" \
+  -H "Content-Type: multipart/form-data" \
+  -F "file=@malware.exe" \
+  -F "path=C:\RedEdr\data\" \
+  -F "fileargs=--verbose"
+```
 
-- `ILogService`: Interface for log retrieval
-  - `WindowsLogService`: Windows Event Log implementation (stub)
-  - `LinuxLogService`: Linux file-based log implementation (stub)
+### Get EDR logs
+```bash
+curl "https://localhost:5001/api/logs/edr"
+```
 
-- `IExecutionService`: Interface for command execution  
-  - `WindowsExecutionService`: Windows command execution (stub)
-  - `LinuxExecutionService`: Linux command execution (stub)
-
-## Development Notes
-
-This is currently a skeleton implementation with dummy data. To implement real functionality:
-
-1. **Windows Log Service**: Use `System.Diagnostics.EventLog` to read Windows Event Logs
-2. **Linux Log Service**: Read from `/var/log/*` files or use `journalctl` for systemd logs
-3. **Execution Services**: Use `System.Diagnostics.Process` with platform-specific shells
-4. **Security**: Add authentication, input validation, and command whitelisting
-5. **Configuration**: Extend appsettings.json for log sources and execution policies
+### Check resource lock
+```bash
+curl "https://localhost:5001/api/lock/status"
+```
