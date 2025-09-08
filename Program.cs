@@ -13,11 +13,13 @@ if (OperatingSystem.IsWindows())
 {
     builder.Services.AddScoped<ILogService, WindowsLogService>();
     builder.Services.AddScoped<IExecutionService, WindowsExecutionService>();
+    builder.Services.AddScoped<IEdrService, WindowsDefenderEdrService>();
 }
 else
 {
     builder.Services.AddScoped<ILogService, LinuxLogService>();
     builder.Services.AddScoped<IExecutionService, LinuxExecutionService>();
+    builder.Services.AddScoped<IEdrService, LinuxEdrService>();
 }
 
 var app = builder.Build();

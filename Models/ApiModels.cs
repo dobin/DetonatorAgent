@@ -20,6 +20,13 @@ public class KillResponse
     public string? Message { get; set; }
 }
 
+public class EdrLogsResponse
+{
+    public string Logs { get; set; } = string.Empty;
+    public string EdrVersion { get; set; } = string.Empty;
+    public string PluginVersion { get; set; } = string.Empty;
+}
+
 public class ApiResponse<T>
 {
     public bool Success { get; set; }

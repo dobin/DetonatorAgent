@@ -23,11 +23,13 @@ public class WindowsLogService : ILogService
 public class WindowsExecutionService : IExecutionService
 {
     private readonly ILogger<WindowsExecutionService> _logger;
+    private readonly IEdrService _edrService;
     private static int _lastProcessId = 0; // Make static to persist across service instances
 
-    public WindowsExecutionService(ILogger<WindowsExecutionService> logger)
+    public WindowsExecutionService(ILogger<WindowsExecutionService> logger, IEdrService edrService)
     {
         _logger = logger;
+        _edrService = edrService;
     }
 
     public async Task<bool> WriteMalwareAsync(string filePath, byte[] content)
@@ -45,6 +47,26 @@ public class WindowsExecutionService : IExecutionService
 
             await File.WriteAllBytesAsync(filePath, content);
             _logger.LogInformation("Successfully wrote malware to: {FilePath}", filePath);
+
+            // Start EDR collection after writing malware (Windows only)
+            try
+            {
+                var edrStartResult = await _edrService.StartCollectionAsync();
+                if (edrStartResult)
+                {
+                    _logger.LogInformation("Started EDR collection after writing malware");
+                }
+                else
+                {
+                    _logger.LogWarning("Failed to start EDR collection after writing malware");
+                }
+            }
+            catch (Exception edrEx)
+            {
+                _logger.LogError(edrEx, "Error starting EDR collection after writing malware");
+                // Don't fail the malware writing operation due to EDR collection failure
+            }
+
             return true;
         }
         catch (Exception ex)

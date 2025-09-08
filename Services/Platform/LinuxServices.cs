@@ -19,14 +19,56 @@ public class LinuxLogService : ILogService
     }
 }
 
+public class LinuxEdrService : IEdrService
+{
+    private readonly ILogger<LinuxEdrService> _logger;
+
+    public LinuxEdrService(ILogger<LinuxEdrService> logger)
+    {
+        _logger = logger;
+    }
+
+    public async Task<bool> StartCollectionAsync()
+    {
+        _logger.LogInformation("EDR collection not implemented for Linux platform");
+        await Task.CompletedTask;
+        return true; // Return true to not break the workflow
+    }
+
+    public async Task<bool> StopCollectionAsync()
+    {
+        _logger.LogInformation("EDR collection not implemented for Linux platform");
+        await Task.CompletedTask;
+        return true;
+    }
+
+    public async Task<string> GetLogsAsync()
+    {
+        await Task.CompletedTask;
+        return "<Events>\n<!-- EDR collection not implemented for Linux platform -->\n</Events>";
+    }
+
+    public string GetEdrVersion()
+    {
+        return "Linux EDR Not Available";
+    }
+
+    public string GetPluginVersion()
+    {
+        return "1.0";
+    }
+}
+
 public class LinuxExecutionService : IExecutionService
 {
     private readonly ILogger<LinuxExecutionService> _logger;
+    private readonly IEdrService _edrService;
     private static int _lastProcessId = 0; // Make static to persist across service instances
 
-    public LinuxExecutionService(ILogger<LinuxExecutionService> logger)
+    public LinuxExecutionService(ILogger<LinuxExecutionService> logger, IEdrService edrService)
     {
         _logger = logger;
+        _edrService = edrService;
     }
 
     public async Task<bool> WriteMalwareAsync(string filePath, byte[] content)
@@ -49,6 +91,26 @@ public class LinuxExecutionService : IExecutionService
             chmod?.WaitForExit();
             
             _logger.LogInformation("Successfully wrote malware to: {FilePath}", filePath);
+
+            // Start EDR collection after writing malware
+            try
+            {
+                var edrStartResult = await _edrService.StartCollectionAsync();
+                if (edrStartResult)
+                {
+                    _logger.LogInformation("Started EDR collection after writing malware");
+                }
+                else
+                {
+                    _logger.LogWarning("Failed to start EDR collection after writing malware");
+                }
+            }
+            catch (Exception edrEx)
+            {
+                _logger.LogError(edrEx, "Error starting EDR collection after writing malware");
+                // Don't fail the malware writing operation due to EDR collection failure
+            }
+
             return true;
         }
         catch (Exception ex)
