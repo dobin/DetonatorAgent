@@ -11,13 +11,15 @@ public class LogsController : ControllerBase
     private readonly ILogService _logService;
     private readonly IEdrService _edrService;
     private readonly IExecutionService _executionService;
+    private readonly IAgentLogService _agentLogService;
     private readonly ILogger<LogsController> _logger;
 
-    public LogsController(ILogService logService, IEdrService edrService, IExecutionService executionService, ILogger<LogsController> logger)
+    public LogsController(ILogService logService, IEdrService edrService, IExecutionService executionService, IAgentLogService agentLogService, ILogger<LogsController> logger)
     {
         _logService = logService;
         _edrService = edrService;
         _executionService = executionService;
+        _agentLogService = agentLogService;
         _logger = logger;
     }
 
@@ -122,6 +124,66 @@ public class LogsController : ControllerBase
             {
                 Success = false,
                 Error = "Failed to retrieve execution logs"
+            });
+        }
+    }
+
+    [HttpGet("agent")]
+    public ActionResult<ApiResponse<AgentLogsResponse>> GetAgentLogs()
+    {
+        try
+        {
+            _logger.LogInformation("Retrieving agent logs");
+            
+            var logs = _agentLogService.GetAgentLogs();
+            
+            var response = new AgentLogsResponse
+            {
+                Logs = logs,
+                Count = logs.Count
+            };
+            
+            return Ok(new ApiResponse<AgentLogsResponse>
+            {
+                Success = true,
+                Data = response
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving agent logs");
+            
+            return StatusCode(500, new ApiResponse<AgentLogsResponse>
+            {
+                Success = false,
+                Error = "Failed to retrieve agent logs"
+            });
+        }
+    }
+
+    [HttpDelete("agent")]
+    public ActionResult<ApiResponse<string>> ClearAgentLogs()
+    {
+        try
+        {
+            _logger.LogInformation("Clearing agent logs");
+            
+            _agentLogService.ClearLogs();
+            
+            return Ok(new ApiResponse<string>
+            {
+                Success = true,
+                Data = "Agent logs cleared successfully"
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error clearing agent logs");
+            
+            return StatusCode(500, new ApiResponse<string>
+            {
+                Success = false,
+                Error = "Failed to clear agent logs"
             });
         }
     }

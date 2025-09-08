@@ -34,6 +34,12 @@ public class ExecutionLogsResponse
     public string Stderr { get; set; } = string.Empty;
 }
 
+public class AgentLogsResponse
+{
+    public List<string> Logs { get; set; } = new();
+    public int Count { get; set; }
+}
+
 public class LockStatusResponse
 {
     public bool InUse { get; set; }

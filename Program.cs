@@ -11,6 +11,10 @@ builder.Services.AddSwaggerGen();
 // Register lock service as singleton to maintain state across requests
 builder.Services.AddSingleton<ILockService, LockService>();
 
+// Register agent log service as singleton to maintain logs across requests
+builder.Services.AddSingleton<AgentLogService>();
+builder.Services.AddSingleton<IAgentLogService>(provider => provider.GetRequiredService<AgentLogService>());
+
 // Register platform-specific services
 if (OperatingSystem.IsWindows())
 {
@@ -26,6 +30,14 @@ else
 }
 
 var app = builder.Build();
+
+// Configure custom logging to capture agent logs
+var agentLogService = app.Services.GetRequiredService<AgentLogService>();
+var loggerFactory = app.Services.GetRequiredService<ILoggerFactory>();
+loggerFactory.AddProvider(new AgentLoggerProvider(agentLogService));
+
+// Add initial startup log
+agentLogService.AddLog("DetonatorAgent 0.4 - Starting up");
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

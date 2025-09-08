@@ -47,3 +47,16 @@ public interface IEdrService
     /// </summary>
     string GetPluginVersion();
 }
+
+public interface IAgentLogService
+{
+    /// <summary>
+    /// Gets all agent logs as a list of strings
+    /// </summary>
+    List<string> GetAgentLogs();
+    
+    /// <summary>
+    /// Clears all captured agent logs
+    /// </summary>
+    void ClearLogs();
+}
