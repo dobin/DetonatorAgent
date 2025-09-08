@@ -1,10 +1,5 @@
 namespace DetonatorAgent.Models;
 
-public class ExecuteRequest
-{
-    public string Command { get; set; } = string.Empty;
-}
-
 public class ExecuteFileRequest
 {
     public IFormFile File { get; set; } = null!;

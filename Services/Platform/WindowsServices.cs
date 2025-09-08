@@ -30,20 +30,6 @@ public class WindowsExecutionService : IExecutionService
         _logger = logger;
     }
 
-    public async Task<string> ExecuteCommandAsync(string command)
-    {
-        // In a real implementation, this would execute Windows-specific commands
-        // using Process.Start with cmd.exe or PowerShell
-        await Task.Delay(200); // Simulate async operation
-        
-        return $@"Windows Command Execution Result:
-Command: {command}
-Output: [DUMMY] Command executed successfully on Windows
-Exit Code: 0
-Execution Time: 150ms
-Working Directory: C:\Windows\System32";
-    }
-
     public async Task<bool> WriteMalwareAsync(string filePath, byte[] content)
     {
         try

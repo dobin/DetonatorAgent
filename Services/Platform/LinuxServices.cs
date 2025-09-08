@@ -29,21 +29,6 @@ public class LinuxExecutionService : IExecutionService
         _logger = logger;
     }
 
-    public async Task<string> ExecuteCommandAsync(string command)
-    {
-        // In a real implementation, this would execute Linux commands
-        // using Process.Start with /bin/bash
-        await Task.Delay(200); // Simulate async operation
-        
-        return $@"Linux Command Execution Result:
-Command: {command}
-Output: [DUMMY] Command executed successfully on Linux
-Exit Code: 0
-Execution Time: 125ms
-Working Directory: /home/user
-Shell: /bin/bash";
-    }
-
     public async Task<bool> WriteMalwareAsync(string filePath, byte[] content)
     {
         try
