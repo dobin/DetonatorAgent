@@ -1,10 +1,12 @@
 using DetonatorAgent.Services;
 using System.Diagnostics.Eventing.Reader;
+using System.Runtime.Versioning;
 using System.Text;
 using System.Xml;
 
 namespace DetonatorAgent.Services.Platform;
 
+[SupportedOSPlatform("windows")]
 public class WindowsDefenderEdrService : IEdrService
 {
     private readonly ILogger<WindowsDefenderEdrService> _logger;
@@ -89,6 +91,7 @@ public class WindowsDefenderEdrService : IEdrService
         return "1.0";
     }
 
+    [SupportedOSPlatform("windows")]
     private async Task<string> GetDefenderEventsSinceAsync(DateTime startTime, DateTime endTime)
     {
         return await Task.Run(() =>
