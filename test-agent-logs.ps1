@@ -1,5 +1,5 @@
 # Test the new agent logs endpoint
-$baseUrl = "http://localhost:5000"
+$baseUrl = "http://localhost:8080"
 
 Write-Host "Testing Agent Logs API..." -ForegroundColor Green
 

@@ -5,7 +5,7 @@ Write-Host "Testing /api/execute/exec endpoint..."
 
 # Test the endpoint using curl
 $curlCommand = @"
-curl.exe -X POST http://localhost:5000/api/execute/exec -F "file=@$testFile" -F "path=C:\temp\" -F "fileargs="
+curl.exe -X POST http://localhost:8080/api/execute/exec -F "file=@$testFile" -F "path=C:\temp\" -F "fileargs="
 "@
 
 Write-Host "Running: $curlCommand"

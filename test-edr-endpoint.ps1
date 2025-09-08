@@ -1,6 +1,6 @@
 # Test script for EDR endpoint
 param(
-    [string]$BaseUrl = "http://localhost:5000"
+    [string]$BaseUrl = "http://localhost:8080"
 )
 
 Write-Host "Testing EDR logs endpoint..." -ForegroundColor Green

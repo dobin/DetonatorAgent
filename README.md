@@ -39,14 +39,14 @@ dotnet run
 ```
 
 The API will be available at:
-- HTTP: http://localhost:5000
-- Swagger UI: https://localhost:5000/swagger
+- HTTP: http://localhost:8080
+- Swagger UI: https://localhost:8080/swagger
 
 ## Example Usage
 
 Start malware:
 ```bash
-curl.exe -X POST http://localhost:5000/api/execute/exec -F "file=@c:\tools\psexec64.exe" -F "path=C:\temp\" -F "fileargs=--help"
+curl.exe -X POST http://localhost:8080/api/execute/exec -F "file=@c:\tools\psexec64.exe" -F "path=C:\temp\" -F "fileargs=--help"
 ```
 
 Get the EDR logs:
@@ -56,5 +56,5 @@ curl "https://localhost:5001/api/logs/edr"
 
 kill it:
 ```bash
-curl.exe -s -X POST http://localhost:5000/api/execute/kill 
+curl.exe -s -X POST http://localhost:8080/api/execute/kill 
 ```

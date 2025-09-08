@@ -5,7 +5,7 @@ echo "Testing DetonatorAgent API..."
 
 # Test /api/logs endpoint
 echo -e "\nTesting GET /api/logs..."
-if response=$(curl -s -w "%{http_code}" "http://localhost:5000/api/logs"); then
+if response=$(curl -s -w "%{http_code}" "http://localhost:8080/api/logs"); then
     http_code="${response: -3}"
     body="${response%???}"
     if [ "$http_code" = "200" ]; then
@@ -21,7 +21,7 @@ fi
 
 # Test /api/execute endpoint
 echo -e "\nTesting POST /api/execute..."
-if response=$(curl -s -w "%{http_code}" -X POST "http://localhost:5000/api/execute" \
+if response=$(curl -s -w "%{http_code}" -X POST "http://localhost:8080/api/execute" \
     -H "Content-Type: application/json" \
     -d '{"command": "echo Hello World"}'); then
     http_code="${response: -3}"
@@ -38,4 +38,4 @@ else
 fi
 
 echo -e "\nAPI testing complete!"
-echo "Visit http://localhost:5000/swagger for the Swagger UI"
+echo "Visit http://localhost:8080/swagger for the Swagger UI"

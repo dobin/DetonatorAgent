@@ -19,7 +19,7 @@ Write-Host "`n1. Testing /api/execute/exec endpoint..."
 
 # Test the endpoint using curl
 try {
-    $response = curl.exe -s -X POST http://localhost:5000/api/execute/exec `
+    $response = curl.exe -s -X POST http://localhost:8080/api/execute/exec `
         -F "file=@$testFile" `
         -F "path=C:\temp\" `
         -F "fileargs="
@@ -37,7 +37,7 @@ try {
     
     Write-Host "`n2. Testing /api/execute/kill endpoint..."
     
-    $killResponse = curl.exe -s -X POST http://localhost:5000/api/execute/kill
+    $killResponse = curl.exe -s -X POST http://localhost:8080/api/execute/kill
     Write-Host "Response from /api/execute/kill:"
     Write-Host $killResponse
     
