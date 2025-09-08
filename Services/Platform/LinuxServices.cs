@@ -64,6 +64,10 @@ public class LinuxExecutionService : IExecutionService
     private readonly ILogger<LinuxExecutionService> _logger;
     private readonly IEdrService _edrService;
     private static int _lastProcessId = 0; // Make static to persist across service instances
+    private static string _lastStdout = string.Empty;
+    private static string _lastStderr = string.Empty;
+    private static Process? _lastProcess = null;
+    private static readonly object _processLock = new object();
 
     public LinuxExecutionService(ILogger<LinuxExecutionService> logger, IEdrService edrService)
     {
@@ -132,11 +136,11 @@ public class LinuxExecutionService : IExecutionService
                 Arguments = arguments ?? "",
                 UseShellExecute = false,
                 CreateNoWindow = true,
-                RedirectStandardOutput = false,
-                RedirectStandardError = false
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
             };
 
-            using var process = Process.Start(startInfo);
+            var process = Process.Start(startInfo);
             if (process == null)
             {
                 _logger.LogError("Failed to start process: {FilePath}", filePath);
@@ -144,10 +148,63 @@ public class LinuxExecutionService : IExecutionService
             }
 
             var pid = process.Id;
-            _lastProcessId = pid; // Store the last process ID for kill functionality
+            
+            lock (_processLock)
+            {
+                // Clean up previous process if it exists
+                _lastProcess?.Dispose();
+                
+                _lastProcessId = pid;
+                _lastProcess = process;
+                _lastStdout = string.Empty;
+                _lastStderr = string.Empty;
+            }
+
             _logger.LogInformation("Process started successfully with PID: {Pid}", pid);
 
-            // Don't wait for the process to exit - just return the PID
+            // Start background task to collect stdout/stderr
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var stdoutTask = process.StandardOutput.ReadToEndAsync();
+                    var stderrTask = process.StandardError.ReadToEndAsync();
+
+                    // Wait for the process to exit and capture output
+                    await process.WaitForExitAsync();
+                    
+                    var stdout = await stdoutTask;
+                    var stderr = await stderrTask;
+
+                    lock (_processLock)
+                    {
+                        // Only update if this is still the current process
+                        if (_lastProcessId == pid)
+                        {
+                            _lastStdout = stdout;
+                            _lastStderr = stderr;
+                        }
+                    }
+
+                    _logger.LogInformation("Process {Pid} completed. Stdout length: {StdoutLength}, Stderr length: {StderrLength}", 
+                        pid, stdout.Length, stderr.Length);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error collecting output from process {Pid}", pid);
+                    
+                    lock (_processLock)
+                    {
+                        // Only update if this is still the current process
+                        if (_lastProcessId == pid)
+                        {
+                            _lastStderr = $"Error collecting output: {ex.Message}";
+                        }
+                    }
+                }
+            });
+
+            // Return immediately without waiting for the process to exit
             await Task.CompletedTask;
             return (true, pid, null);
         }
@@ -162,27 +219,74 @@ public class LinuxExecutionService : IExecutionService
     {
         try
         {
-            if (_lastProcessId == 0)
+            Process? processToKill = null;
+            int pidToKill = 0;
+
+            lock (_processLock)
             {
-                _logger.LogWarning("No process to kill - no last execution found");
-                return false;
+                if (_lastProcessId == 0)
+                {
+                    _logger.LogWarning("No process to kill - no last execution found");
+                    return false;
+                }
+
+                pidToKill = _lastProcessId;
+                processToKill = _lastProcess;
             }
 
-            _logger.LogInformation("Attempting to kill process with PID: {Pid}", _lastProcessId);
+            _logger.LogInformation("Attempting to kill process with PID: {Pid}", pidToKill);
 
             try
             {
-                var process = Process.GetProcessById(_lastProcessId);
-                process.Kill();
-                await process.WaitForExitAsync();
-                _logger.LogInformation("Successfully killed process with PID: {Pid}", _lastProcessId);
-                _lastProcessId = 0; // Reset after successful kill
+                // Try to kill using the stored process reference first
+                if (processToKill != null && !processToKill.HasExited)
+                {
+                    processToKill.Kill();
+                    await processToKill.WaitForExitAsync();
+                    _logger.LogInformation("Successfully killed process with PID: {Pid} using process reference", pidToKill);
+                }
+                else
+                {
+                    // Fallback to getting process by ID
+                    var process = Process.GetProcessById(pidToKill);
+                    process.Kill();
+                    await process.WaitForExitAsync();
+                    _logger.LogInformation("Successfully killed process with PID: {Pid} using process ID", pidToKill);
+                }
+
+                lock (_processLock)
+                {
+                    _lastProcessId = 0; // Reset after successful kill
+                    _lastProcess?.Dispose();
+                    _lastProcess = null;
+                }
+                
                 return true;
             }
             catch (ArgumentException)
             {
-                _logger.LogWarning("Process with PID {Pid} not found - may have already exited", _lastProcessId);
-                _lastProcessId = 0; // Reset since process doesn't exist
+                _logger.LogWarning("Process with PID {Pid} not found - may have already exited", pidToKill);
+                
+                lock (_processLock)
+                {
+                    _lastProcessId = 0; // Reset since process doesn't exist
+                    _lastProcess?.Dispose();
+                    _lastProcess = null;
+                }
+                
+                return true; // Consider this a success since the process is gone
+            }
+            catch (InvalidOperationException)
+            {
+                _logger.LogWarning("Process with PID {Pid} has already exited", pidToKill);
+                
+                lock (_processLock)
+                {
+                    _lastProcessId = 0; // Reset since process has exited
+                    _lastProcess?.Dispose();
+                    _lastProcess = null;
+                }
+                
                 return true; // Consider this a success since the process is gone
             }
         }
@@ -190,6 +294,16 @@ public class LinuxExecutionService : IExecutionService
         {
             _logger.LogError(ex, "Error killing process with PID: {Pid}", _lastProcessId);
             return false;
+        }
+    }
+
+    public async Task<(int Pid, string Stdout, string Stderr)> GetExecutionLogsAsync()
+    {
+        await Task.CompletedTask; // For consistency with async pattern
+        
+        lock (_processLock)
+        {
+            return (_lastProcessId, _lastStdout, _lastStderr);
         }
     }
 }

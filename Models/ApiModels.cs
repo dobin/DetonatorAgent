@@ -27,6 +27,13 @@ public class EdrLogsResponse
     public string PluginVersion { get; set; } = string.Empty;
 }
 
+public class ExecutionLogsResponse
+{
+    public int Pid { get; set; }
+    public string Stdout { get; set; } = string.Empty;
+    public string Stderr { get; set; } = string.Empty;
+}
+
 public class ApiResponse<T>
 {
     public bool Success { get; set; }

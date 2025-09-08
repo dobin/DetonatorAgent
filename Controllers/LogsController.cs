@@ -10,12 +10,14 @@ public class LogsController : ControllerBase
 {
     private readonly ILogService _logService;
     private readonly IEdrService _edrService;
+    private readonly IExecutionService _executionService;
     private readonly ILogger<LogsController> _logger;
 
-    public LogsController(ILogService logService, IEdrService edrService, ILogger<LogsController> logger)
+    public LogsController(ILogService logService, IEdrService edrService, IExecutionService executionService, ILogger<LogsController> logger)
     {
         _logService = logService;
         _edrService = edrService;
+        _executionService = executionService;
         _logger = logger;
     }
 
@@ -86,6 +88,40 @@ public class LogsController : ControllerBase
             {
                 Success = false,
                 Error = "Failed to retrieve EDR logs"
+            });
+        }
+    }
+
+    [HttpGet("execution")]
+    public async Task<ActionResult<ApiResponse<ExecutionLogsResponse>>> GetExecutionLogs()
+    {
+        try
+        {
+            _logger.LogInformation("Retrieving execution logs");
+            
+            var (pid, stdout, stderr) = await _executionService.GetExecutionLogsAsync();
+            
+            var response = new ExecutionLogsResponse
+            {
+                Pid = pid,
+                Stdout = stdout,
+                Stderr = stderr
+            };
+            
+            return Ok(new ApiResponse<ExecutionLogsResponse>
+            {
+                Success = true,
+                Data = response
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving execution logs");
+            
+            return StatusCode(500, new ApiResponse<ExecutionLogsResponse>
+            {
+                Success = false,
+                Error = "Failed to retrieve execution logs"
             });
         }
     }
