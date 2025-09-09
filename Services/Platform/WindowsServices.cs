@@ -148,9 +148,14 @@ public class WindowsExecutionService : IExecutionService
             await Task.CompletedTask;
             return (true, pid, null);
         }
+        catch (Win32Exception ex) when (ex.NativeErrorCode == 225) // ERROR_OPERATION_ABORTED - virus detected
+        {
+            _logger.LogWarning("Malware execution blocked by antivirus: {FilePath} - Error code: {ErrorCode}", filePath, ex.NativeErrorCode);
+            return (false, 0, "virus");
+        }
         catch (Win32Exception ex) when (ex.NativeErrorCode == 1234) // ERROR_VIRUS_INFECTED equivalent
         {
-            _logger.LogWarning("Malware execution blocked by antivirus: {FilePath}", filePath);
+            _logger.LogWarning("Malware execution blocked by antivirus: {FilePath} - Error code: {ErrorCode}", filePath, ex.NativeErrorCode);
             return (false, 0, "virus");
         }
         catch (Exception ex)
