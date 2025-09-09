@@ -1,12 +1,11 @@
 using DetonatorAgent.Services;
 using System.Diagnostics;
-using System.ComponentModel;
 
-namespace DetonatorAgent.Services.Platform;
+namespace DetonatorAgent.Services.Platform.Linux;
 
-public class WindowsExecutionService : IExecutionService
+public class LinuxExecutionService : IExecutionService
 {
-    private readonly ILogger<WindowsExecutionService> _logger;
+    private readonly ILogger<LinuxExecutionService> _logger;
     private readonly IEdrService _edrService;
     private int _lastProcessId = 0;
     private string _lastStdout = string.Empty;
@@ -14,7 +13,7 @@ public class WindowsExecutionService : IExecutionService
     private Process? _lastProcess = null;
     private readonly object _processLock = new object();
 
-    public WindowsExecutionService(ILogger<WindowsExecutionService> logger, IEdrService edrService)
+    public LinuxExecutionService(ILogger<LinuxExecutionService> logger, IEdrService edrService)
     {
         _logger = logger;
         _edrService = edrService;
@@ -34,9 +33,14 @@ public class WindowsExecutionService : IExecutionService
             }
 
             await File.WriteAllBytesAsync(filePath, content);
+            
+            // Set executable permissions on Linux
+            var chmod = Process.Start("chmod", $"+x \"{filePath}\"");
+            chmod?.WaitForExit();
+            
             _logger.LogInformation("Successfully wrote malware to: {FilePath}", filePath);
 
-            // Start EDR collection after writing malware (Windows only)
+            // Start EDR collection after writing malware
             try
             {
                 var edrStartResult = await _edrService.StartCollectionAsync();
@@ -148,16 +152,6 @@ public class WindowsExecutionService : IExecutionService
             await Task.CompletedTask;
             return (true, pid, null);
         }
-        catch (Win32Exception ex) when (ex.NativeErrorCode == 225) // ERROR_OPERATION_ABORTED - virus detected
-        {
-            _logger.LogWarning("Malware execution blocked by antivirus: {FilePath} - Error code: {ErrorCode}", filePath, ex.NativeErrorCode);
-            return (false, 0, "virus");
-        }
-        catch (Win32Exception ex) when (ex.NativeErrorCode == 1234) // ERROR_VIRUS_INFECTED equivalent
-        {
-            _logger.LogWarning("Malware execution blocked by antivirus: {FilePath} - Error code: {ErrorCode}", filePath, ex.NativeErrorCode);
-            return (false, 0, "virus");
-        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error executing malware: {FilePath}", filePath);
@@ -206,7 +200,7 @@ public class WindowsExecutionService : IExecutionService
 
                 lock (_processLock)
                 {
-                    //_lastProcessId = 0; // Reset after successful kill
+                    _lastProcessId = 0; // Reset after successful kill
                     _lastProcess?.Dispose();
                     _lastProcess = null;
                 }
@@ -219,7 +213,7 @@ public class WindowsExecutionService : IExecutionService
                 
                 lock (_processLock)
                 {
-                    //_lastProcessId = 0; // Reset since process doesn't exist
+                    _lastProcessId = 0; // Reset since process doesn't exist
                     _lastProcess?.Dispose();
                     _lastProcess = null;
                 }
@@ -232,7 +226,7 @@ public class WindowsExecutionService : IExecutionService
                 
                 lock (_processLock)
                 {
-                    //_lastProcessId = 0; // Reset since process has exited
+                    _lastProcessId = 0; // Reset since process has exited
                     _lastProcess?.Dispose();
                     _lastProcess = null;
                 }

@@ -1,5 +1,6 @@
 using DetonatorAgent.Services;
-using DetonatorAgent.Services.Platform;
+using DetonatorAgent.Services.Platform.Windows;
+using DetonatorAgent.Services.Platform.Linux;
 
 var builder = WebApplication.CreateBuilder(args);
 
