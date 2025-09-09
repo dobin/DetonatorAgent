@@ -18,13 +18,13 @@ builder.Services.AddSingleton<IAgentLogService>(provider => provider.GetRequired
 // Register platform-specific services
 if (OperatingSystem.IsWindows())
 {
-    builder.Services.AddScoped<IExecutionService, WindowsExecutionService>();
-    builder.Services.AddScoped<IEdrService, WindowsDefenderEdrService>();
+    builder.Services.AddSingleton<IExecutionService, WindowsExecutionService>();
+    builder.Services.AddSingleton<IEdrService, WindowsDefenderEdrService>();
 }
 else
 {
-    builder.Services.AddScoped<IExecutionService, LinuxExecutionService>();
-    builder.Services.AddScoped<IEdrService, LinuxEdrService>();
+    builder.Services.AddSingleton<IExecutionService, LinuxExecutionService>();
+    builder.Services.AddSingleton<IEdrService, LinuxEdrService>();
 }
 
 var app = builder.Build();

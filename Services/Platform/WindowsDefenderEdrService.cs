@@ -10,9 +10,9 @@ namespace DetonatorAgent.Services.Platform;
 public class WindowsDefenderEdrService : IEdrService
 {
     private readonly ILogger<WindowsDefenderEdrService> _logger;
-    private static DateTime _startTime;
-    private static string _collectedLogs = string.Empty;
-    private static readonly object _lockObject = new object();
+    private DateTime _startTime;
+    private string _collectedLogs = string.Empty;
+    private readonly object _lockObject = new object();
 
     public WindowsDefenderEdrService(ILogger<WindowsDefenderEdrService> logger)
     {

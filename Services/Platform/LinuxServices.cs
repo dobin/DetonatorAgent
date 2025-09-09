@@ -47,11 +47,11 @@ public class LinuxExecutionService : IExecutionService
 {
     private readonly ILogger<LinuxExecutionService> _logger;
     private readonly IEdrService _edrService;
-    private static int _lastProcessId = 0; // Make static to persist across service instances
-    private static string _lastStdout = string.Empty;
-    private static string _lastStderr = string.Empty;
-    private static Process? _lastProcess = null;
-    private static readonly object _processLock = new object();
+    private int _lastProcessId = 0;
+    private string _lastStdout = string.Empty;
+    private string _lastStderr = string.Empty;
+    private Process? _lastProcess = null;
+    private readonly object _processLock = new object();
 
     public LinuxExecutionService(ILogger<LinuxExecutionService> logger, IEdrService edrService)
     {
