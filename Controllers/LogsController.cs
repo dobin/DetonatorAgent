@@ -22,7 +22,7 @@ public class LogsController : ControllerBase
     }
 
     [HttpGet("edr")]
-    public async Task<ActionResult<ApiResponse<EdrLogsResponse>>> GetEdrLogs()
+    public async Task<ActionResult<EdrLogsResponse>> GetEdrLogs()
     {
         try
         {
@@ -40,33 +40,23 @@ public class LogsController : ControllerBase
             var edrVersion = _edrService.GetEdrVersion();
             var pluginVersion = _edrService.GetPluginVersion();
             
-            var response = new EdrLogsResponse
+            return Ok(new EdrLogsResponse
             {
                 Logs = logs,
                 EdrVersion = edrVersion,
                 PluginVersion = pluginVersion
-            };
-            
-            return Ok(new ApiResponse<EdrLogsResponse>
-            {
-                Success = true,
-                Data = response
             });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error retrieving EDR logs");
             
-            return StatusCode(500, new ApiResponse<EdrLogsResponse>
-            {
-                Success = false,
-                Error = "Failed to retrieve EDR logs"
-            });
+            return StatusCode(500, "Failed to retrieve EDR logs");
         }
     }
 
     [HttpGet("execution")]
-    public async Task<ActionResult<ApiResponse<ExecutionLogsResponse>>> GetExecutionLogs()
+    public async Task<ActionResult<ExecutionLogsResponse>> GetExecutionLogs()
     {
         try
         {
@@ -81,26 +71,18 @@ public class LogsController : ControllerBase
                 Stderr = stderr
             };
             
-            return Ok(new ApiResponse<ExecutionLogsResponse>
-            {
-                Success = true,
-                Data = response
-            });
+            return Ok(response);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error retrieving execution logs");
             
-            return StatusCode(500, new ApiResponse<ExecutionLogsResponse>
-            {
-                Success = false,
-                Error = "Failed to retrieve execution logs"
-            });
+            return StatusCode(500, "Failed to retrieve execution logs");
         }
     }
 
     [HttpGet("agent")]
-    public ActionResult<ApiResponse<AgentLogsResponse>> GetAgentLogs()
+    public ActionResult<List<string>> GetAgentLogs()
     {
         try
         {
@@ -108,32 +90,18 @@ public class LogsController : ControllerBase
             
             var logs = _agentLogService.GetAgentLogs();
             
-            var response = new AgentLogsResponse
-            {
-                Logs = logs,
-                Count = logs.Count
-            };
-            
-            return Ok(new ApiResponse<AgentLogsResponse>
-            {
-                Success = true,
-                Data = response
-            });
+            return Ok(logs);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error retrieving agent logs");
             
-            return StatusCode(500, new ApiResponse<AgentLogsResponse>
-            {
-                Success = false,
-                Error = "Failed to retrieve agent logs"
-            });
+            return StatusCode(500, "Failed to retrieve agent logs");
         }
     }
 
     [HttpDelete("agent")]
-    public ActionResult<ApiResponse<string>> ClearAgentLogs()
+    public ActionResult<string> ClearAgentLogs()
     {
         try
         {
@@ -141,21 +109,13 @@ public class LogsController : ControllerBase
             
             _agentLogService.ClearLogs();
             
-            return Ok(new ApiResponse<string>
-            {
-                Success = true,
-                Data = "Agent logs cleared successfully"
-            });
+            return Ok("Agent logs cleared successfully");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error clearing agent logs");
             
-            return StatusCode(500, new ApiResponse<string>
-            {
-                Success = false,
-                Error = "Failed to clear agent logs"
-            });
+            return StatusCode(500, "Failed to clear agent logs");
         }
     }
 }

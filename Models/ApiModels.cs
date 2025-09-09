@@ -25,7 +25,9 @@ public class KillResponse
 public class EdrLogsResponse
 {
     public string Logs { get; set; } = string.Empty;
+    [JsonPropertyName("edr_version")]
     public string EdrVersion { get; set; } = string.Empty;
+    [JsonPropertyName("plugin_version")]
     public string PluginVersion { get; set; } = string.Empty;
 }
 
@@ -52,12 +54,4 @@ public class LockErrorResponse
 {
     public string Status { get; set; } = "error";
     public string Message { get; set; } = string.Empty;
-}
-
-public class ApiResponse<T>
-{
-    public bool Success { get; set; }
-    public T? Data { get; set; }
-    public string? Error { get; set; }
-    public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 }
