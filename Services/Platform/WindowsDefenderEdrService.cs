@@ -10,9 +10,9 @@ namespace DetonatorAgent.Services.Platform;
 public class WindowsDefenderEdrService : IEdrService
 {
     private readonly ILogger<WindowsDefenderEdrService> _logger;
-    private DateTime _startTime;
-    private string _collectedLogs = string.Empty;
-    private readonly object _lockObject = new object();
+    private static DateTime _startTime;
+    private static string _collectedLogs = string.Empty;
+    private static readonly object _lockObject = new object();
 
     public WindowsDefenderEdrService(ILogger<WindowsDefenderEdrService> logger)
     {
@@ -45,17 +45,19 @@ public class WindowsDefenderEdrService : IEdrService
     {
         try
         {
+            DateTime startTime;
             DateTime stopTime;
             lock (_lockObject)
             {
+                startTime = _startTime;
                 stopTime = DateTime.UtcNow;
             }
 
             _logger.LogInformation("Stopping Windows Defender EDR log collection. Collecting events from {StartTime} to {StopTime}", 
-                _startTime.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"), 
+                startTime.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"), 
                 stopTime.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"));
 
-            var logs = await GetDefenderEventsSinceAsync(_startTime, stopTime);
+            var logs = await GetDefenderEventsSinceAsync(startTime, stopTime);
             
             lock (_lockObject)
             {
@@ -98,13 +100,16 @@ public class WindowsDefenderEdrService : IEdrService
         {
             try
             {
-                // Convert to the format expected by Event Log queries
-                string startTimeStr = startTime.ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
-                string endTimeStr = endTime.ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
+                // Convert to the format expected by Event Log queries (ISO 8601 format)
+                // Windows Event Log expects UTC time in this specific format
+                string startTimeStr = startTime.ToString("yyyy-MM-ddTHH:mm:ss.ffffff000Z");
+                string endTimeStr = endTime.ToString("yyyy-MM-ddTHH:mm:ss.ffffff000Z");
 
-                string query = $"*[System[TimeCreated[@SystemTime>='{startTimeStr}' and @SystemTime<='{endTimeStr}']]]";
+                // XPath query for filtering events by time range
+                string query = $"*[System[TimeCreated[@SystemTime >= '{startTimeStr}' and @SystemTime <= '{endTimeStr}']]]";
 
-                _logger.LogDebug("Querying Windows Defender events with query: {Query}", query);
+                _logger.LogDebug("Querying Windows Defender events from {StartTime} to {EndTime} with query: {Query}", 
+                    startTimeStr, endTimeStr, query);
 
                 var allEvents = new StringBuilder();
                 allEvents.AppendLine("<Events>");
