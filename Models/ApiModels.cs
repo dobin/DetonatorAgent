@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace DetonatorAgent.Models;
 
 public class ExecuteFileRequest
@@ -42,6 +44,7 @@ public class AgentLogsResponse
 
 public class LockStatusResponse
 {
+    [JsonPropertyName("in_use")]
     public bool InUse { get; set; }
 }
 
