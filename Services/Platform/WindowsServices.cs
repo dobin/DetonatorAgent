@@ -206,7 +206,7 @@ public class WindowsExecutionService : IExecutionService
 
                 lock (_processLock)
                 {
-                    _lastProcessId = 0; // Reset after successful kill
+                    //_lastProcessId = 0; // Reset after successful kill
                     _lastProcess?.Dispose();
                     _lastProcess = null;
                 }
@@ -219,7 +219,7 @@ public class WindowsExecutionService : IExecutionService
                 
                 lock (_processLock)
                 {
-                    _lastProcessId = 0; // Reset since process doesn't exist
+                    //_lastProcessId = 0; // Reset since process doesn't exist
                     _lastProcess?.Dispose();
                     _lastProcess = null;
                 }
@@ -232,7 +232,7 @@ public class WindowsExecutionService : IExecutionService
                 
                 lock (_processLock)
                 {
-                    _lastProcessId = 0; // Reset since process has exited
+                    //_lastProcessId = 0; // Reset since process has exited
                     _lastProcess?.Dispose();
                     _lastProcess = null;
                 }
