@@ -4,7 +4,7 @@ using System.Runtime.Versioning;
 using System.Text;
 using System.Xml;
 
-namespace DetonatorAgent.Services.Platform.Windows;
+namespace DetonatorAgent.EdrPlugins;
 
 [SupportedOSPlatform("windows")]
 public class WindowsDefenderEdrService : IEdrService

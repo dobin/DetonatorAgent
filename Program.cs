@@ -1,6 +1,5 @@
 using DetonatorAgent.Services;
-using DetonatorAgent.Services.Platform.Windows;
-using DetonatorAgent.Services.Platform.Linux;
+using DetonatorAgent.EdrPlugins;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,12 +19,41 @@ builder.Services.AddSingleton<IAgentLogService>(provider => provider.GetRequired
 if (OperatingSystem.IsWindows())
 {
     builder.Services.AddSingleton<IExecutionService, WindowsExecutionService>();
-    builder.Services.AddSingleton<IEdrService, WindowsDefenderEdrService>();
 }
 else
 {
     builder.Services.AddSingleton<IExecutionService, LinuxExecutionService>();
-    builder.Services.AddSingleton<IEdrService, LinuxEdrService>();
+}
+
+// Register EDR service based on command line argument
+var edrService = args.FirstOrDefault(arg => arg.StartsWith("--edr="))?.Split('=')[1]?.ToLower() ?? "windowsdefender";
+
+if (OperatingSystem.IsWindows())
+{
+    switch (edrService)
+    {
+        case "windowsdefender":
+            builder.Services.AddSingleton<IEdrService, WindowsDefenderEdrService>();
+            break;
+        case "example":
+            builder.Services.AddSingleton<IEdrService, ExampleEdrService>();
+            break;
+        default:
+            builder.Services.AddSingleton<IEdrService, WindowsDefenderEdrService>();
+            break;
+    }
+}
+else
+{
+    switch (edrService)
+    {
+        case "linux":
+            builder.Services.AddSingleton<IEdrService, LinuxEdrService>();
+            break;
+        default:
+            builder.Services.AddSingleton<IEdrService, LinuxEdrService>();
+            break;
+    }
 }
 
 var app = builder.Build();
