@@ -7,13 +7,13 @@ using System.Xml;
 namespace DetonatorAgent.EdrPlugins;
 
 [SupportedOSPlatform("windows")]
-public class ExampleEdrService : IEdrService
+public class ExampleEdrPlugin : IEdrService
 {
-    private readonly ILogger<ExampleEdrService> _logger;
+    private readonly ILogger<ExampleEdrPlugin> _logger;
     private string _collectedLogs = string.Empty;
     private readonly object _lockObject = new object();
 
-    public ExampleEdrService(ILogger<ExampleEdrService> logger)
+    public ExampleEdrPlugin(ILogger<ExampleEdrPlugin> logger)
     {
         _logger = logger;
     }
@@ -32,7 +32,7 @@ public class ExampleEdrService : IEdrService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to start Windows Defender EDR log collection");
+            _logger.LogError(ex, "Failed to start Example EDR log collection");
             return false;
         }
     }
@@ -56,12 +56,12 @@ public class ExampleEdrService : IEdrService
                 _collectedLogs = logs;
             }
 
-            _logger.LogInformation("Collected {LogLength} characters of Windows Defender events", logs.Length);
+            _logger.LogInformation("Collected {LogLength} characters of Example EDR events", logs.Length);
             return true;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to stop Windows Defender EDR log collection");
+            _logger.LogError(ex, "Failed to stop Example EDR log collection");
             return false;
         }
     }
@@ -77,7 +77,7 @@ public class ExampleEdrService : IEdrService
 
     public string GetEdrVersion()
     {
-        return "Windows Defender 1.0";
+        return "Example EDR 1.0";
     }
 
     public string GetPluginVersion()

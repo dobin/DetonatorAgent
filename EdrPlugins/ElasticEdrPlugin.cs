@@ -3,25 +3,25 @@ using System.Diagnostics;
 
 namespace DetonatorAgent.EdrPlugins;
 
-public class LinuxEdrService : IEdrService
+public class ElasticEdrPlugin : IEdrService
 {
-    private readonly ILogger<LinuxEdrService> _logger;
+    private readonly ILogger<ElasticEdrPlugin> _logger;
 
-    public LinuxEdrService(ILogger<LinuxEdrService> logger)
+    public ElasticEdrPlugin(ILogger<ElasticEdrPlugin> logger)
     {
         _logger = logger;
     }
 
     public async Task<bool> StartCollectionAsync()
     {
-        _logger.LogInformation("EDR collection not implemented for Linux platform");
+        _logger.LogInformation("Elastic EDR collection not yet implemented");
         await Task.CompletedTask;
         return true; // Return true to not break the workflow
     }
 
     public async Task<bool> StopCollectionAsync()
     {
-        _logger.LogInformation("EDR collection not implemented for Linux platform");
+        _logger.LogInformation("Elastic EDR collection not yet implemented");
         await Task.CompletedTask;
         return true;
     }
@@ -29,12 +29,12 @@ public class LinuxEdrService : IEdrService
     public async Task<string> GetLogsAsync()
     {
         await Task.CompletedTask;
-        return "<Events>\n<!-- EDR collection not implemented for Linux platform -->\n</Events>";
+        return "<Events>\n<!-- Elastic EDR collection not yet implemented -->\n</Events>";
     }
 
     public string GetEdrVersion()
     {
-        return "Linux EDR Not Available";
+        return "Elastic EDR Not Available";
     }
 
     public string GetPluginVersion()

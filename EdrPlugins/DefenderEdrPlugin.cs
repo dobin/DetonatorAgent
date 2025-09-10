@@ -7,14 +7,14 @@ using System.Xml;
 namespace DetonatorAgent.EdrPlugins;
 
 [SupportedOSPlatform("windows")]
-public class WindowsDefenderEdrService : IEdrService
+public class DefenderEdrPlugin : IEdrService
 {
-    private readonly ILogger<WindowsDefenderEdrService> _logger;
+    private readonly ILogger<DefenderEdrPlugin> _logger;
     private DateTime _startTime;
     private string _collectedLogs = string.Empty;
     private readonly object _lockObject = new object();
 
-    public WindowsDefenderEdrService(ILogger<WindowsDefenderEdrService> logger)
+    public DefenderEdrPlugin(ILogger<DefenderEdrPlugin> logger)
     {
         _logger = logger;
     }

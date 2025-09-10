@@ -33,13 +33,16 @@ if (OperatingSystem.IsWindows())
     switch (edrService)
     {
         case "windowsdefender":
-            builder.Services.AddSingleton<IEdrService, WindowsDefenderEdrService>();
+            builder.Services.AddSingleton<IEdrService, DefenderEdrPlugin>();
             break;
         case "example":
-            builder.Services.AddSingleton<IEdrService, ExampleEdrService>();
+            builder.Services.AddSingleton<IEdrService, ExampleEdrPlugin>();
+            break;
+        case "elastic":
+            builder.Services.AddSingleton<IEdrService, ElasticEdrPlugin>();
             break;
         default:
-            builder.Services.AddSingleton<IEdrService, WindowsDefenderEdrService>();
+            builder.Services.AddSingleton<IEdrService, DefenderEdrPlugin>();
             break;
     }
 }
@@ -47,11 +50,11 @@ else
 {
     switch (edrService)
     {
-        case "linux":
-            builder.Services.AddSingleton<IEdrService, LinuxEdrService>();
+        case "elastic":
+            builder.Services.AddSingleton<IEdrService, ElasticEdrPlugin>();
             break;
         default:
-            builder.Services.AddSingleton<IEdrService, LinuxEdrService>();
+            builder.Services.AddSingleton<IEdrService, ElasticEdrPlugin>();
             break;
     }
 }
