@@ -1,7 +1,7 @@
 using DetonatorAgent.Services;
 using System.Diagnostics;
 
-namespace DetonatorAgent.Services.Platform.Linux;
+namespace DetonatorAgent.Services;
 
 public class LinuxExecutionService : IExecutionService
 {

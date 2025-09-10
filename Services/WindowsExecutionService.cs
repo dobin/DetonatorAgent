@@ -2,7 +2,7 @@ using DetonatorAgent.Services;
 using System.Diagnostics;
 using System.ComponentModel;
 
-namespace DetonatorAgent.Services.Platform.Windows;
+namespace DetonatorAgent.Services;
 
 public class WindowsExecutionService : IExecutionService
 {
