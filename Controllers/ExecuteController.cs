@@ -111,20 +111,21 @@ public class ExecuteController : ControllerBase
         {
             _logger.LogInformation("Kill request received");
             
-            var success = await _executionService.KillLastExecutionAsync();
+            var (success, errorMessage) = await _executionService.KillLastExecutionAsync();
             
             if (!success)
             {
                 return StatusCode(500, new KillResponse
                 {
                     Status = "error",
-                    Message = "Failed to kill last execution"
+                    Message = errorMessage ?? "Failed to kill last execution"
                 });
             }
 
             return Ok(new KillResponse
             {
-                Status = "ok"
+                Status = "ok",
+                Message = errorMessage
             });
         }
         catch (Exception ex)

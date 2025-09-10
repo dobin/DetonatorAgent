@@ -165,7 +165,7 @@ public class WindowsExecutionService : IExecutionService
         }
     }
 
-    public async Task<bool> KillLastExecutionAsync()
+    public async Task<(bool Success, string? ErrorMessage)> KillLastExecutionAsync()
     {
         try
         {
@@ -177,7 +177,7 @@ public class WindowsExecutionService : IExecutionService
                 if (_lastProcessId == 0)
                 {
                     _logger.LogWarning("No process to kill - no last execution found");
-                    return false;
+                    return (false, "No process to kill - no last execution found");
                 }
 
                 pidToKill = _lastProcessId;
@@ -211,7 +211,7 @@ public class WindowsExecutionService : IExecutionService
                     _lastProcess = null;
                 }
                 
-                return true;
+                return (true, "Process killed successfully");
             }
             catch (ArgumentException)
             {
@@ -224,7 +224,7 @@ public class WindowsExecutionService : IExecutionService
                     _lastProcess = null;
                 }
                 
-                return true; // Consider this a success since the process is gone
+                return (true, "Process not found"); // Consider this a success since the process is gone
             }
             catch (InvalidOperationException)
             {
@@ -237,13 +237,13 @@ public class WindowsExecutionService : IExecutionService
                     _lastProcess = null;
                 }
                 
-                return true; // Consider this a success since the process is gone
+                return (true, "Process already exited"); // Consider this a success since the process is gone
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error killing process with PID: {Pid}", _lastProcessId);
-            return false;
+            return (false, ex.Message);
         }
     }
 
