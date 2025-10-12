@@ -250,4 +250,12 @@ public class LinuxExecutionService : IExecutionService
             return (_lastProcessId, _lastStdout, _lastStderr);
         }
     }
+
+    public async Task<(bool Success, string? FilePath, string? ErrorMessage)> PrepareFileForExecutionAsync(string filePath, string? executeFile = null)
+    {
+        // Linux version doesn't support archive extraction or ISO mounting
+        // Just return the original file path
+        await Task.CompletedTask;
+        return (true, filePath, null);
+    }
 }

@@ -1,6 +1,7 @@
 using DetonatorAgent.Services;
 using System.Diagnostics;
 using System.ComponentModel;
+using System.IO.Compression;
 
 namespace DetonatorAgent.Services;
 
@@ -74,10 +75,8 @@ public class WindowsExecutionService : IExecutionService
             {
                 FileName = filePath,
                 Arguments = arguments ?? "",
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true
+                UseShellExecute = true,
+                CreateNoWindow = true
             };
 
             var process = Process.Start(startInfo);
@@ -87,7 +86,17 @@ public class WindowsExecutionService : IExecutionService
                 return (false, 0, "Failed to start process");
             }
 
-            var pid = process.Id;
+            // Try to get the PID - may not be available with UseShellExecute
+            int pid = 0;
+            try
+            {
+                pid = process.Id;
+            }
+            catch
+            {
+                // If we can't get the PID, use a placeholder
+                pid = -1;
+            }
             
             lock (_processLock)
             {
@@ -102,45 +111,20 @@ public class WindowsExecutionService : IExecutionService
 
             _logger.LogInformation("Process started successfully with PID: {Pid}", pid);
 
-            // Start background task to collect stdout/stderr
+            // Note: With UseShellExecute = true, we cannot redirect stdout/stderr
+            // The process may also spawn child processes that we don't track
             _ = Task.Run(async () =>
             {
                 try
                 {
-                    var stdoutTask = process.StandardOutput.ReadToEndAsync();
-                    var stderrTask = process.StandardError.ReadToEndAsync();
-
-                    // Wait for the process to exit and capture output
+                    // Just wait for the process without reading output
                     await process.WaitForExitAsync();
-                    
-                    var stdout = await stdoutTask;
-                    var stderr = await stderrTask;
 
-                    lock (_processLock)
-                    {
-                        // Only update if this is still the current process
-                        if (_lastProcessId == pid)
-                        {
-                            _lastStdout = stdout;
-                            _lastStderr = stderr;
-                        }
-                    }
-
-                    _logger.LogInformation("Process {Pid} completed. Stdout length: {StdoutLength}, Stderr length: {StderrLength}", 
-                        pid, stdout.Length, stderr.Length);
+                    _logger.LogInformation("Process {Pid} completed.", pid);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error collecting output from process {Pid}", pid);
-                    
-                    lock (_processLock)
-                    {
-                        // Only update if this is still the current process
-                        if (_lastProcessId == pid)
-                        {
-                            _lastStderr = $"Error collecting output: {ex.Message}";
-                        }
-                    }
+                    _logger.LogError(ex, "Error waiting for process {Pid}", pid);
                 }
             });
 
@@ -255,5 +239,148 @@ public class WindowsExecutionService : IExecutionService
         {
             return (_lastProcessId, _lastStdout, _lastStderr);
         }
+    }
+
+    private string? FindExecutableFile(string searchPath, string? executeFile)
+    {
+        var executableExtensions = new[] { ".exe", ".bat", ".com", ".lnk" };
+
+        if (!string.IsNullOrWhiteSpace(executeFile))
+        {
+            // Use specified file
+            var specifiedFilePath = Path.Combine(searchPath, executeFile);
+            if (File.Exists(specifiedFilePath))
+            {
+                _logger.LogInformation("Using specified file for execution: {ExecuteFile}", executeFile);
+                return specifiedFilePath;
+            }
+            else
+            {
+                _logger.LogError("Specified file not found: {ExecuteFile}", executeFile);
+                return null;
+            }
+        }
+        else
+        {
+            // Find alphabetically first executable file
+            var allFiles = Directory.GetFiles(searchPath, "*", SearchOption.AllDirectories);
+            var executableFiles = allFiles
+                .Where(f => executableExtensions.Contains(Path.GetExtension(f).ToLowerInvariant()))
+                .OrderBy(f => Path.GetFileName(f))
+                .ToList();
+
+            if (executableFiles.Any())
+            {
+                var fileToExecute = executableFiles.First();
+                _logger.LogInformation("Selected alphabetically first executable: {FileName}", Path.GetFileName(fileToExecute));
+                return fileToExecute;
+            }
+            else
+            {
+                _logger.LogError("No executable files found in {SearchPath}", searchPath);
+                return null;
+            }
+        }
+    }
+
+    private async Task<(bool Success, string? FilePath, string? ErrorMessage)> HandleIsoFileAsync(string filePath, string? executeFile)
+    {
+        _logger.LogInformation("Detected ISO file: {FileName}, mounting it", Path.GetFileName(filePath));
+        
+        // Mount ISO by starting it directly (Windows will mount it automatically)
+        var mountProcess = new Process
+        {
+            StartInfo = new ProcessStartInfo
+            {
+                FileName = filePath,
+                UseShellExecute = true,
+                CreateNoWindow = true
+            }
+        };
+        
+        mountProcess.Start();
+        _logger.LogInformation("ISO mount command executed");
+        
+        // Wait for Windows to mount the ISO
+        await Task.Delay(3000);
+        
+        // Check if D: drive exists (common mount point)
+        if (!Directory.Exists(@"D:\"))
+        {
+            _logger.LogError("D: drive not found after mounting ISO");
+            return (false, null, "Failed to mount ISO or D: drive not accessible");
+        }
+
+        _logger.LogInformation("ISO mounted to D: drive");
+        
+        // Find the file to execute on D: drive
+        var fileToExecute = FindExecutableFile(@"D:\", executeFile);
+        
+        if (fileToExecute == null)
+        {
+            var errorMsg = !string.IsNullOrWhiteSpace(executeFile)
+                ? $"Specified file '{executeFile}' not found on mounted ISO"
+                : "No executable files (.exe, .bat, .com, .lnk) found on mounted ISO";
+            return (false, null, errorMsg);
+        }
+        
+        return (true, fileToExecute, null);
+    }
+
+    private async Task<(bool Success, string? FilePath, string? ErrorMessage)> HandleZipFileAsync(string filePath, string? executeFile)
+    {
+        _logger.LogInformation("Detected archive file: {FileName}, extracting to temp directory", Path.GetFileName(filePath));
+        
+        var fileExtension = Path.GetExtension(filePath).ToLowerInvariant();
+        
+        // Check for RAR files (not supported)
+        if (fileExtension == ".rar")
+        {
+            _logger.LogError("RAR files are not yet supported");
+            return (false, null, "RAR files are not yet supported. Please use ZIP files instead.");
+        }
+        
+        // Create extraction directory in user's temp folder
+        var tempPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Temp", Path.GetRandomFileName());
+        Directory.CreateDirectory(tempPath);
+        _logger.LogInformation("Created extraction directory: {TempPath}", tempPath);
+
+        // Extract ZIP file
+        using (var zip = ZipFile.OpenRead(filePath))
+        {
+            zip.ExtractToDirectory(tempPath, overwriteFiles: true);
+        }
+        _logger.LogInformation("Successfully extracted ZIP file to: {TempPath}", tempPath);
+
+        // Find the file to execute
+        var fileToExecute = FindExecutableFile(tempPath, executeFile);
+        
+        if (fileToExecute == null)
+        {
+            var errorMsg = !string.IsNullOrWhiteSpace(executeFile)
+                ? $"Specified file '{executeFile}' not found in archive"
+                : "No executable files (.exe, .bat, .com, .lnk) found in archive";
+            return (false, null, errorMsg);
+        }
+
+        return (true, fileToExecute, null);
+    }
+
+    public async Task<(bool Success, string? FilePath, string? ErrorMessage)> PrepareFileForExecutionAsync(string filePath, string? executeFile = null)
+    {
+        // Check if file is ZIP, RAR, or ISO and handle accordingly
+        var fileExtension = Path.GetExtension(filePath).ToLowerInvariant();
+        
+        if (fileExtension == ".iso")
+        {
+            return await HandleIsoFileAsync(filePath, executeFile);
+        }
+        else if (fileExtension == ".zip" || fileExtension == ".rar")
+        {
+            return await HandleZipFileAsync(filePath, executeFile);
+        }
+        
+        // For regular executables, just return the original path
+        return (true, filePath, null);
     }
 }

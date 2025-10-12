@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using DetonatorAgent.Services;
 using DetonatorAgent.Models;
-using System.IO.Compression;
 
 namespace DetonatorAgent.Controllers;
 
@@ -65,94 +64,20 @@ public class ExecuteController : ControllerBase
                 });
             }
 
-            // Check if file is ZIP or RAR and handle extraction
-            var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
-            string actualFilePath = filePath;
-            
-            if (fileExtension == ".zip" || fileExtension == ".rar")
+            // Prepare file for execution (handles ZIP, RAR, or ISO extraction/mounting)
+            var (prepareSuccess, actualFilePath, prepareError) = await _executionService.PrepareFileForExecutionAsync(filePath, executeFile);
+            if (!prepareSuccess)
             {
-                _logger.LogInformation("Detected archive file: {FileName}, extracting to temp directory", file.FileName);
-                
-                // Create extraction directory in user's temp folder
-                var tempPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Temp", Path.GetRandomFileName());
-                Directory.CreateDirectory(tempPath);
-                _logger.LogInformation("Created extraction directory: {TempPath}", tempPath);
-
-                if (fileExtension == ".zip")
+                return BadRequest(new ExecuteFileResponse
                 {
-                    // Extract ZIP file from the written file
-                    using (var zip = ZipFile.OpenRead(filePath))
-                    {
-                        zip.ExtractToDirectory(tempPath, overwriteFiles: true);
-                    }
-                    _logger.LogInformation("Successfully extracted ZIP file to: {TempPath}", tempPath);
-                }
-                else if (fileExtension == ".rar")
-                {
-                    // For RAR files, we'll need to use an external tool
-                    // For now, we'll return an error as RAR support requires additional libraries
-                    _logger.LogError("RAR files are not yet supported");
-                    return BadRequest(new ExecuteFileResponse
-                    {
-                        Status = "error",
-                        Message = "RAR files are not yet supported. Please use ZIP files instead."
-                    });
-                }
-
-                // Find the file to execute
-                string? fileToExecute = null;
-                var executableExtensions = new[] { ".exe", ".bat", ".com", ".lnk" };
-
-                if (!string.IsNullOrWhiteSpace(executeFile))
-                {
-                    // Use specified file
-                    var specifiedFilePath = Path.Combine(tempPath, executeFile);
-                    if (System.IO.File.Exists(specifiedFilePath))
-                    {
-                        fileToExecute = specifiedFilePath;
-                        _logger.LogInformation("Using specified file for execution: {ExecuteFile}", executeFile);
-                    }
-                    else
-                    {
-                        _logger.LogError("Specified file not found in archive: {ExecuteFile}", executeFile);
-                        return BadRequest(new ExecuteFileResponse
-                        {
-                            Status = "error",
-                            Message = $"Specified file '{executeFile}' not found in archive"
-                        });
-                    }
-                }
-                else
-                {
-                    // Find alphabetically first executable file
-                    var allFiles = Directory.GetFiles(tempPath, "*", SearchOption.AllDirectories);
-                    var executableFiles = allFiles
-                        .Where(f => executableExtensions.Contains(Path.GetExtension(f).ToLowerInvariant()))
-                        .OrderBy(f => Path.GetFileName(f))
-                        .ToList();
-
-                    if (executableFiles.Any())
-                    {
-                        fileToExecute = executableFiles.First();
-                        _logger.LogInformation("Selected alphabetically first executable: {FileName}", Path.GetFileName(fileToExecute));
-                    }
-                    else
-                    {
-                        _logger.LogError("No executable files found in archive");
-                        return BadRequest(new ExecuteFileResponse
-                        {
-                            Status = "error",
-                            Message = "No executable files (.exe, .bat, .com, .lnk) found in archive"
-                        });
-                    }
-                }
-
-                actualFilePath = fileToExecute;
+                    Status = "error",
+                    Message = prepareError ?? "Failed to prepare file for execution"
+                });
             }
 
             // Start the malware (use actualFilePath which might be extracted file or original file)
             _logger.LogInformation("Executing file: {FilePath}", actualFilePath);
-            var (success, pid, errorMessage) = await _executionService.StartProcessAsync(actualFilePath, fileargs);
+            var (success, pid, errorMessage) = await _executionService.StartProcessAsync(actualFilePath!, fileargs);
             
             if (!success)
             {
