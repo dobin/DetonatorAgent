@@ -7,6 +7,7 @@ public class ExecuteFileRequest
     public IFormFile File { get; set; } = null!;
     public string? Path { get; set; }
     public string? FileArgs { get; set; }
+    public string? ExecuteFile { get; set; }
 }
 
 public class ExecuteFileResponse

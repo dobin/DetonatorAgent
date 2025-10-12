@@ -15,6 +15,12 @@ A cross-platform ASP.NET Core Web API for malware execution, log collection, and
 
 ### Execute Controller
 - **POST /api/execute/exec** - Upload and execute a file
+  - Supports ZIP file extraction to %LOCALAPPDATA%\Temp
+  - Parameters:
+    - `file`: File to upload (required)
+    - `path`: Target directory (optional, defaults to C:\RedEdr\data\)
+    - `fileargs`: Command line arguments (optional)
+    - `executeFile`: Specific file to execute from ZIP (optional, defaults to alphabetically first .exe/.bat/.com/.lnk)
 - **POST /api/execute/kill** - Kill the last executed process
 
 ### Logs Controller
@@ -93,15 +99,21 @@ Lock released successfully
 
 ## Example Usage with curl
 
-Start malware:
+### Regular file execution:
 ```bash
 curl.exe -X POST http://localhost:8080/api/execute/exec -F "file=@c:\tools\psexec64.exe" -F "path=C:\temp\" -F "fileargs=--help"
 ```
 
-Get the EDR logs:
+### ZIP file extraction and execution:
 ```bash
-curl "https://localhost:5001/api/logs/edr"
+# Extract ZIP and run alphabetically first executable file
+curl.exe -X POST http://localhost:8080/api/execute/exec -F "file=@c:\malware\payload.zip" -F "path=C:\temp\"
+
+# Extract ZIP and run specific file
+curl.exe -X POST http://localhost:8080/api/execute/exec -F "file=@c:\malware\payload.zip" -F "path=C:\temp\" -F "executeFile=malware.exe"
 ```
+
+### Get the EDR logs:
 
 kill it:
 ```bash
