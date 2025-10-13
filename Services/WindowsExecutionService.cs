@@ -12,6 +12,8 @@ public class WindowsExecutionService : IExecutionService {
     private string _lastStdout = string.Empty;
     private string _lastStderr = string.Empty;
     private Process? _lastProcess = null;
+    private string? _lastExtractionPath = null;
+    private string? _lastMountedIsoPath = null;
     private readonly object _processLock = new object();
 
     public WindowsExecutionService(ILogger<WindowsExecutionService> logger, IEdrService edrService) {
@@ -90,6 +92,7 @@ public class WindowsExecutionService : IExecutionService {
                 _lastProcess = process;
                 _lastStdout = string.Empty;
                 _lastStderr = string.Empty;
+                // Note: _lastExtractionPath and _lastMountedIsoPath are set in PrepareFileForExecutionAsync
             }
 
             _logger.LogInformation("Process started successfully with PID: {Pid}", pid);
@@ -132,6 +135,8 @@ public class WindowsExecutionService : IExecutionService {
         try {
             Process? processToKill = null;
             int pidToKill = 0;
+            string? extractionPath = null;
+            string? mountedIsoPath = null;
 
             lock (_processLock) {
                 if (_lastProcessId == 0) {
@@ -141,6 +146,8 @@ public class WindowsExecutionService : IExecutionService {
 
                 pidToKill = _lastProcessId;
                 processToKill = _lastProcess;
+                extractionPath = _lastExtractionPath;
+                mountedIsoPath = _lastMountedIsoPath;
             }
 
             _logger.LogInformation("Attempting to kill process with PID: {Pid}", pidToKill);
@@ -160,10 +167,58 @@ public class WindowsExecutionService : IExecutionService {
                     _logger.LogInformation("Successfully killed process with PID: {Pid} using process ID", pidToKill);
                 }
 
+                // Clean up extracted directory if exists
+                if (!string.IsNullOrEmpty(extractionPath) && Directory.Exists(extractionPath)) {
+                    try {
+                        _logger.LogInformation("Deleting extracted directory: {ExtractionPath}", extractionPath);
+                        Directory.Delete(extractionPath, recursive: true);
+                        _logger.LogInformation("Successfully deleted extracted directory");
+                    }
+                    catch (Exception ex) {
+                        _logger.LogError(ex, "Failed to delete extracted directory: {ExtractionPath}", extractionPath);
+                    }
+                }
+
+                // Unmount ISO if exists
+                if (!string.IsNullOrEmpty(mountedIsoPath) && File.Exists(mountedIsoPath)) {
+                    try {
+                        _logger.LogInformation("Unmounting ISO file: {IsoPath}", mountedIsoPath);
+
+                        // Use PowerShell to dismount the ISO
+                        var dismountProcess = new Process {
+                            StartInfo = new ProcessStartInfo {
+                                FileName = "powershell.exe",
+                                Arguments = $"-Command \"Dismount-DiskImage -ImagePath '{mountedIsoPath}'\"",
+                                UseShellExecute = false,
+                                CreateNoWindow = true,
+                                RedirectStandardOutput = true,
+                                RedirectStandardError = true
+                            }
+                        };
+
+                        dismountProcess.Start();
+                        await dismountProcess.WaitForExitAsync();
+
+                        if (dismountProcess.ExitCode == 0) {
+                            _logger.LogInformation("Successfully unmounted ISO file");
+                        }
+                        else {
+                            var errorOutput = await dismountProcess.StandardError.ReadToEndAsync();
+                            _logger.LogWarning("Failed to unmount ISO file. Exit code: {ExitCode}, Error: {Error}",
+                                dismountProcess.ExitCode, errorOutput);
+                        }
+                    }
+                    catch (Exception ex) {
+                        _logger.LogError(ex, "Failed to unmount ISO file: {IsoPath}", mountedIsoPath);
+                    }
+                }
+
                 lock (_processLock) {
                     //_lastProcessId = 0; // Reset after successful kill
                     _lastProcess?.Dispose();
                     _lastProcess = null;
+                    _lastExtractionPath = null;
+                    _lastMountedIsoPath = null;
                 }
 
                 return (true, "Process killed successfully");
@@ -175,6 +230,8 @@ public class WindowsExecutionService : IExecutionService {
                     //_lastProcessId = 0; // Reset since process doesn't exist
                     _lastProcess?.Dispose();
                     _lastProcess = null;
+                    _lastExtractionPath = null;
+                    _lastMountedIsoPath = null;
                 }
 
                 return (true, "Process not found"); // Consider this a success since the process is gone
@@ -186,6 +243,8 @@ public class WindowsExecutionService : IExecutionService {
                     //_lastProcessId = 0; // Reset since process has exited
                     _lastProcess?.Dispose();
                     _lastProcess = null;
+                    _lastExtractionPath = null;
+                    _lastMountedIsoPath = null;
                 }
 
                 return (true, "Process already exited"); // Consider this a success since the process is gone
@@ -266,6 +325,11 @@ public class WindowsExecutionService : IExecutionService {
 
         _logger.LogInformation("ISO mounted to D: drive");
 
+        // Store the ISO path for later unmounting
+        lock (_processLock) {
+            _lastMountedIsoPath = filePath;
+        }
+
         // Find the file to execute on D: drive
         var fileToExecute = FindExecutableFile(@"D:\", executeFile);
 
@@ -300,6 +364,11 @@ public class WindowsExecutionService : IExecutionService {
             zip.ExtractToDirectory(tempPath, overwriteFiles: true);
         }
         _logger.LogInformation("Successfully extracted ZIP file to: {TempPath}", tempPath);
+
+        // Store the extraction path for later cleanup
+        lock (_processLock) {
+            _lastExtractionPath = tempPath;
+        }
 
         // Find the file to execute
         var fileToExecute = FindExecutableFile(tempPath, executeFile);
