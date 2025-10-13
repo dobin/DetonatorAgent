@@ -16,22 +16,18 @@ builder.Services.AddSingleton<AgentLogService>();
 builder.Services.AddSingleton<IAgentLogService>(provider => provider.GetRequiredService<AgentLogService>());
 
 // Register platform-specific services
-if (OperatingSystem.IsWindows())
-{
+if (OperatingSystem.IsWindows()) {
     builder.Services.AddSingleton<IExecutionService, WindowsExecutionService>();
 }
-else
-{
+else {
     builder.Services.AddSingleton<IExecutionService, LinuxExecutionService>();
 }
 
 // Register EDR service based on command line argument
 var edrService = args.FirstOrDefault(arg => arg.StartsWith("--edr="))?.Split('=')[1]?.ToLower() ?? "windowsdefender";
 
-if (OperatingSystem.IsWindows())
-{
-    switch (edrService)
-    {
+if (OperatingSystem.IsWindows()) {
+    switch (edrService) {
         case "windowsdefender":
             builder.Services.AddSingleton<IEdrService, DefenderEdrPlugin>();
             break;
@@ -46,10 +42,8 @@ if (OperatingSystem.IsWindows())
             break;
     }
 }
-else
-{
-    switch (edrService)
-    {
+else {
+    switch (edrService) {
         case "elastic":
             builder.Services.AddSingleton<IEdrService, ElasticEdrPlugin>();
             break;
@@ -70,8 +64,7 @@ loggerFactory.AddProvider(new AgentLoggerProvider(agentLogService));
 agentLogService.AddLog("DetonatorAgent 0.4 - Starting up");
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
+if (app.Environment.IsDevelopment()) {
     app.UseSwagger();
     app.UseSwaggerUI();
 }

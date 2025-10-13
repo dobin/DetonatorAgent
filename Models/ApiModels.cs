@@ -2,29 +2,25 @@ using System.Text.Json.Serialization;
 
 namespace DetonatorAgent.Models;
 
-public class ExecuteFileRequest
-{
+public class ExecuteFileRequest {
     public IFormFile File { get; set; } = null!;
     public string? Path { get; set; }
     public string? FileArgs { get; set; }
     public string? ExecuteFile { get; set; }
 }
 
-public class ExecuteFileResponse
-{
+public class ExecuteFileResponse {
     public string Status { get; set; } = string.Empty;
     public int? Pid { get; set; }
     public string? Message { get; set; }
 }
 
-public class KillResponse
-{
+public class KillResponse {
     public string Status { get; set; } = string.Empty;
     public string? Message { get; set; }
 }
 
-public class EdrLogsResponse
-{
+public class EdrLogsResponse {
     public string Logs { get; set; } = string.Empty;
     [JsonPropertyName("edr_version")]
     public string EdrVersion { get; set; } = string.Empty;
@@ -32,27 +28,23 @@ public class EdrLogsResponse
     public string PluginVersion { get; set; } = string.Empty;
 }
 
-public class ExecutionLogsResponse
-{
+public class ExecutionLogsResponse {
     public int Pid { get; set; }
     public string Stdout { get; set; } = string.Empty;
     public string Stderr { get; set; } = string.Empty;
 }
 
-public class AgentLogsResponse
-{
+public class AgentLogsResponse {
     public List<string> Logs { get; set; } = new();
     public int Count { get; set; }
 }
 
-public class LockStatusResponse
-{
+public class LockStatusResponse {
     [JsonPropertyName("in_use")]
     public bool InUse { get; set; }
 }
 
-public class LockErrorResponse
-{
+public class LockErrorResponse {
     public string Status { get; set; } = "error";
     public string Message { get; set; } = string.Empty;
 }

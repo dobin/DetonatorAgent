@@ -1,0 +1,16 @@
+# Top-most EditorConfig file
+root = true
+
+[*.cs]
+indent_style = space
+indent_size = 4
+
+# Place open braces on the same line
+csharp_new_line_before_open_brace = none
+csharp_new_line_before_open_brace_types = none
+csharp_new_line_before_open_brace_methods = none
+csharp_new_line_before_open_brace_properties = none
+csharp_new_line_before_open_brace_accessors = none
+csharp_new_line_before_open_brace_anonymous_methods = none
+csharp_new_line_before_open_brace_control_blocks = none
+csharp_new_line_before_open_brace_lambdas = none
