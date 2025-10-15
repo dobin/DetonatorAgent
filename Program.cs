@@ -17,7 +17,7 @@ builder.Services.AddSingleton<IAgentLogService>(provider => provider.GetRequired
 
 // Register platform-specific services
 if (OperatingSystem.IsWindows()) {
-    builder.Services.AddSingleton<IExecutionService, WindowsExecutionService>();
+    builder.Services.AddSingleton<IExecutionService, WindowsExecutionServiceExec>();
 }
 else {
     builder.Services.AddSingleton<IExecutionService, LinuxExecutionService>();

@@ -5,8 +5,8 @@ using System.IO.Compression;
 
 namespace DetonatorAgent.Services;
 
-public class WindowsExecutionService : IExecutionService {
-    private readonly ILogger<WindowsExecutionService> _logger;
+public class WindowsExecutionServiceExec : IExecutionService {
+    private readonly ILogger<WindowsExecutionServiceExec> _logger;
     private readonly IEdrService _edrService;
     private int _lastProcessId = 0;
     private string _lastStdout = string.Empty;
@@ -16,7 +16,7 @@ public class WindowsExecutionService : IExecutionService {
     private string? _lastMountedIsoPath = null;
     private readonly object _processLock = new object();
 
-    public WindowsExecutionService(ILogger<WindowsExecutionService> logger, IEdrService edrService) {
+    public WindowsExecutionServiceExec(ILogger<WindowsExecutionServiceExec> logger, IEdrService edrService) {
         _logger = logger;
         _edrService = edrService;
     }
