@@ -11,6 +11,7 @@ public class WindowsExecutionServiceAutoItExplorer : IExecutionService {
     private readonly ILogger<WindowsExecutionServiceAutoItExplorer> _logger;
     private readonly IEdrService _edrService;
     private int _lastProcessId = 0;
+    private string? _lastExplorerWindowTitle = null;
     private string _lastStdout = string.Empty;
     private string _lastStderr = string.Empty;
     private string? _lastExtractionPath = null;
@@ -176,6 +177,14 @@ public class WindowsExecutionServiceAutoItExplorer : IExecutionService {
         AutoItX.WinActivate(directory);
         await Task.Delay(500);
 
+        // Store the folder name (not full path) as the window title for later cleanup
+        // Explorer window titles show only the folder name, not the full path
+        var folderName = Path.GetFileName(directory);
+        lock (_processLock) {
+            _lastExplorerWindowTitle = folderName;
+        }
+        _logger.LogInformation("Stored Explorer window title for cleanup: {WindowTitle} (from path: {FullPath})", folderName, directory);
+
         // Send Enter key to open the selected file
         _logger.LogInformation("Sending Enter key to open file: {FileName}", fileName);
         AutoItX.Send("{ENTER}");
@@ -210,6 +219,7 @@ public class WindowsExecutionServiceAutoItExplorer : IExecutionService {
     public async Task<(bool Success, string? ErrorMessage)> KillLastExecutionAsync() {
         try {
             int pidToKill = 0;
+            string? explorerWindowTitle = null;
             string? extractionPath = null;
             string? mountedIsoPath = null;
 
@@ -220,6 +230,7 @@ public class WindowsExecutionServiceAutoItExplorer : IExecutionService {
                 }
 
                 pidToKill = _lastProcessId;
+                explorerWindowTitle = _lastExplorerWindowTitle;
                 extractionPath = _lastExtractionPath;
                 mountedIsoPath = _lastMountedIsoPath;
             }
@@ -271,6 +282,58 @@ public class WindowsExecutionServiceAutoItExplorer : IExecutionService {
                 // Wait a bit to ensure process is terminated
                 await Task.Delay(500);
 
+                // Close the Explorer window if it was used
+                if (!string.IsNullOrEmpty(explorerWindowTitle)) {
+                    try {
+                        _logger.LogInformation("Attempting to close Explorer window with title: {WindowTitle}", explorerWindowTitle);
+                        
+                        // Check if the window exists
+                        int windowExists = AutoItX.WinExists(explorerWindowTitle);
+                        
+                        if (windowExists == 1) {
+                            _logger.LogInformation("Explorer window found, attempting to close it");
+                            
+                            // Method 1: Try using WinClose (graceful close)
+                            int closeResult = AutoItX.WinClose(explorerWindowTitle);
+                            
+                            if (closeResult == 1) {
+                                _logger.LogInformation("WinClose sent to Explorer window");
+                                await Task.Delay(500);
+                                
+                                // Check if window still exists
+                                if (AutoItX.WinExists(explorerWindowTitle) == 0) {
+                                    _logger.LogInformation("Successfully closed Explorer window using WinClose");
+                                } else {
+                                    // Method 2: Force close with WinKill
+                                    _logger.LogInformation("Window still exists, using WinKill to force close");
+                                    int killResult = AutoItX.WinKill(explorerWindowTitle);
+                                    
+                                    if (killResult == 1) {
+                                        await Task.Delay(300);
+                                        _logger.LogInformation("WinKill sent to Explorer window");
+                                    } else {
+                                        _logger.LogWarning("WinKill failed for Explorer window");
+                                    }
+                                }
+                            } else {
+                                _logger.LogWarning("WinClose failed for Explorer window, trying WinKill");
+                                
+                                // Try WinKill directly
+                                int killResult = AutoItX.WinKill(explorerWindowTitle);
+                                if (killResult == 1) {
+                                    await Task.Delay(300);
+                                    _logger.LogInformation("WinKill sent to Explorer window");
+                                }
+                            }
+                        } else {
+                            _logger.LogInformation("Explorer window with title '{WindowTitle}' not found - may have already been closed", explorerWindowTitle);
+                        }
+                    }
+                    catch (Exception ex) {
+                        _logger.LogWarning(ex, "Error closing Explorer window with title: {WindowTitle}", explorerWindowTitle);
+                    }
+                }
+
                 // Clean up extracted directory if exists
                 if (!string.IsNullOrEmpty(extractionPath) && Directory.Exists(extractionPath)) {
                     try {
@@ -311,6 +374,7 @@ public class WindowsExecutionServiceAutoItExplorer : IExecutionService {
                 lock (_processLock) {
                     _lastExtractionPath = null;
                     _lastMountedIsoPath = null;
+                    _lastExplorerWindowTitle = null;
                 }
 
                 return (true, "Process killed successfully using AutoIt Explorer");
