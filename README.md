@@ -33,6 +33,9 @@ There are different execution types:
 * **`AutoItExplorer`**: Most realistic! Opens a `explorer.exe` window with AutoIt and "click" the files
 
 
+![AutoItExplorer Demo](Doc/detonatoragent-autoitexplorer-zip.gif)
+
+
 ### Feature: EDR Log retrieval
 
 The `/api/logs/edr` will return the log files of your EDR product. 
@@ -43,7 +46,6 @@ Example:
 > curl.exe http://localhost:8080/api/logs/edr                                                        
 {"logs":"<Events>\r\n<Event xmlns='http://schemas.microsoft.com/win/2004/08/events/event'><System><Provider Name='Microsoft-Windows-Windows Defender' Guid='{11cd958a-c507-4ef3-b3f2-5fd9dfbd2c78}'/><EventID>1150</EventID><Version>0</Version><Level>4</Level><Task>0</Task><Opcode>0</Opcode><Keywords>0x8000000000000000</Keywords><TimeCreated SystemTime='2025-10-17T10:31:47.0249874Z'/><EventRecordID>11533</EventRecordID><Correlation/><Execution ProcessID='6140' ThreadID='54144'/><Channel>Microsoft-Windows-Windows Defender/Operational</Channel><Computer>unreal</Computer><Security UserID='S-1-5-18'/></System><EventData><Data Name='Product Name'>Microsoft Defender Antivirus</Data><Data Name='Platform version'>4.18.25080.5</Data><Data Name='Unused'></Data><Data Name='Engine version'>1.1.25090.3001</Data><Data Name='Security intelligence version'>1.439.239.0</Data></EventData></Event>\r\n</Events>\r\n","edr_version":"Windows Defender 1.0","plugin_version":"1.0"}
 ```
-
 
 
 ## Running the Application
