@@ -1,0 +1,596 @@
+using DetonatorAgent.Services;
+using System.IO.Compression;
+using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
+using AutoIt;
+
+namespace DetonatorAgent.Services;
+
+[SupportedOSPlatform("windows")]
+public class WindowsExecutionServiceAutoItExplorer : IExecutionService {
+    private readonly ILogger<WindowsExecutionServiceAutoItExplorer> _logger;
+    private readonly IEdrService _edrService;
+    private int _lastProcessId = 0;
+    private string _lastStdout = string.Empty;
+    private string _lastStderr = string.Empty;
+    private string? _lastExtractionPath = null;
+    private string? _lastMountedIsoPath = null;
+    private readonly object _processLock = new object();
+    
+    // AutoIt constants
+    private const int SW_SHOW = 5;
+    private const int SW_HIDE = 0;
+    private const int SW_MAXIMIZE = 3;
+
+    public WindowsExecutionServiceAutoItExplorer(ILogger<WindowsExecutionServiceAutoItExplorer> logger, IEdrService edrService) {
+        _logger = logger;
+        _edrService = edrService;
+    }
+
+    public async Task<bool> WriteMalwareAsync(string filePath, byte[] content) {
+        try {
+            _logger.LogInformation("Writing malware to: {FilePath}", filePath);
+
+            // Ensure directory exists
+            var directory = Path.GetDirectoryName(filePath);
+            if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory)) {
+                Directory.CreateDirectory(directory);
+            }
+
+            await File.WriteAllBytesAsync(filePath, content);
+            _logger.LogInformation("Successfully wrote malware to: {FilePath}", filePath);
+
+            // Start EDR collection after writing malware (Windows only)
+            try {
+                var edrStartResult = await _edrService.StartCollectionAsync();
+                if (edrStartResult) {
+                    _logger.LogInformation("Started EDR collection after writing malware");
+                }
+                else {
+                    _logger.LogWarning("Failed to start EDR collection after writing malware");
+                }
+            }
+            catch (Exception edrEx) {
+                _logger.LogError(edrEx, "Error starting EDR collection after writing malware");
+                // Don't fail the malware writing operation due to EDR collection failure
+            }
+
+            return true;
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, "Failed to write malware to: {FilePath}", filePath);
+            return false;
+        }
+    }
+
+    public async Task<(bool Success, int Pid, string? ErrorMessage)> StartProcessAsync(string filePath, string? arguments = null) {
+        try {
+            _logger.LogInformation("Executing malware using AutoIt Explorer: {FilePath} with args: {Arguments}", filePath, arguments ?? "");
+
+            var fileExtension = Path.GetExtension(filePath).ToLowerInvariant();
+            int pid = 0;
+
+            // Determine the type of file and use appropriate method
+            if (fileExtension == ".exe" || fileExtension == ".bat" || fileExtension == ".com") {
+                // Direct executable - open in explorer and double-click
+                pid = await ExecuteFileViaExplorerAsync(filePath);
+            }
+            else if (fileExtension == ".zip") {
+                // ZIP file - handled in PrepareFileForExecutionAsync, but this shouldn't be called directly
+                _logger.LogError("ZIP files should be prepared before execution");
+                return (false, 0, "ZIP files must be prepared before execution");
+            }
+            else if (fileExtension == ".iso") {
+                // ISO file - handled in PrepareFileForExecutionAsync, but this shouldn't be called directly
+                _logger.LogError("ISO files should be prepared before execution");
+                return (false, 0, "ISO files must be prepared before execution");
+            }
+            else {
+                _logger.LogError("Unsupported file type: {Extension}", fileExtension);
+                return (false, 0, $"Unsupported file type: {fileExtension}");
+            }
+
+            if (pid == 0) {
+                int errorCode = AutoItX.ErrorCode();
+                _logger.LogError("Failed to start process using AutoIt Explorer: {FilePath}, Error code: {ErrorCode}", filePath, errorCode);
+                
+                // Check if it's an antivirus/security block
+                if (errorCode == 1) {
+                    return (false, 0, "virus");
+                }
+                
+                return (false, 0, $"AutoIt failed to start process (error code: {errorCode})");
+            }
+
+            lock (_processLock) {
+                _lastProcessId = pid;
+                _lastStdout = string.Empty;
+                _lastStderr = string.Empty;
+            }
+
+            var logPid = (int)pid;
+            _logger.LogInformation("Process started successfully using AutoIt Explorer with PID: {Pid}", logPid);
+
+            // Monitor the process in the background
+            _ = Task.Run(async () => {
+                try {
+                    // Wait for the process to exit
+                    while (AutoItX.ProcessExists(pid.ToString()) == 1) {
+                        await Task.Delay(1000);
+                    }
+
+                    var completedPid = (int)pid;
+                    _logger.LogInformation("Process {Pid} completed (AutoIt Explorer)", completedPid);
+                }
+                catch (Exception ex) {
+                    var errorPid = (int)pid;
+                    _logger.LogError(ex, "Error monitoring process {Pid} (AutoIt Explorer)", errorPid);
+                }
+            });
+
+            return (true, pid, null);
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, "Error executing malware using AutoIt Explorer: {FilePath}", filePath);
+            
+            // Check if error message suggests antivirus block
+            if (ex.Message.Contains("virus", StringComparison.OrdinalIgnoreCase) ||
+                ex.Message.Contains("blocked", StringComparison.OrdinalIgnoreCase) ||
+                ex.Message.Contains("access denied", StringComparison.OrdinalIgnoreCase)) {
+                return (false, 0, "virus");
+            }
+            
+            return (false, 0, ex.Message);
+        }
+    }
+
+    private async Task<int> ExecuteFileViaExplorerAsync(string filePath) {
+        _logger.LogInformation("Opening explorer.exe to execute file: {FilePath}", filePath);
+
+        var directory = Path.GetDirectoryName(filePath);
+        var fileName = Path.GetFileName(filePath);
+
+        if (string.IsNullOrEmpty(directory) || string.IsNullOrEmpty(fileName)) {
+            _logger.LogError("Invalid file path: {FilePath}", filePath);
+            return 0;
+        }
+
+        // Open explorer with the file selected
+        var explorerArgs = $"/select,\"{filePath}\"";
+        int explorerPid = AutoItX.Run($"explorer.exe {explorerArgs}", directory, SW_SHOW);
+
+        if (explorerPid == 0) {
+            _logger.LogError("Failed to open explorer.exe");
+            return 0;
+        }
+
+        _logger.LogInformation("Explorer opened with PID: {Pid}", explorerPid);
+
+        // Wait for explorer window to appear
+        await Task.Delay(1000);
+
+        // Wait for the Explorer window to be active (using the directory name as window title)
+        AutoItX.WinWait(directory, "", 5);
+        AutoItX.WinActivate(directory);
+        await Task.Delay(500);
+
+        // Send Enter key to open the selected file
+        _logger.LogInformation("Sending Enter key to open file: {FileName}", fileName);
+        AutoItX.Send("{ENTER}");
+
+        // Wait for the file to start executing
+        await Task.Delay(2000);
+
+        // Try to find the PID of the started process using .NET Process class
+        var processName = Path.GetFileNameWithoutExtension(filePath);
+        
+        try {
+            var processes = System.Diagnostics.Process.GetProcessesByName(processName);
+            if (processes.Length > 0) {
+                // Get the most recently started process
+                var newestProcess = processes.OrderByDescending(p => p.StartTime).FirstOrDefault();
+                if (newestProcess != null) {
+                    int foundPid = newestProcess.Id;
+                    _logger.LogInformation("Found started process {ProcessName} with PID: {Pid}", processName, foundPid);
+                    return foundPid;
+                }
+            }
+        }
+        catch (Exception ex) {
+            _logger.LogWarning(ex, "Error finding process {ProcessName}", processName);
+        }
+
+        _logger.LogWarning("Could not find PID for process {ProcessName}, returning explorer PID", processName);
+        return explorerPid;
+    }
+
+    private async Task<int> ExecuteZipViaExplorerAsync(string zipFilePath, string executeFile) {
+        _logger.LogInformation("Opening explorer.exe to handle ZIP file: {ZipFilePath}", zipFilePath);
+
+        var directory = Path.GetDirectoryName(zipFilePath);
+        var fileName = Path.GetFileName(zipFilePath);
+
+        if (string.IsNullOrEmpty(directory) || string.IsNullOrEmpty(fileName)) {
+            _logger.LogError("Invalid ZIP file path: {ZipFilePath}", zipFilePath);
+            return 0;
+        }
+
+        // Open explorer with the ZIP file selected
+        var explorerArgs = $"/select,\"{zipFilePath}\"";
+        int explorerPid = AutoItX.Run($"explorer.exe {explorerArgs}", directory, SW_SHOW);
+
+        if (explorerPid == 0) {
+            _logger.LogError("Failed to open explorer.exe for ZIP file");
+            return 0;
+        }
+
+        _logger.LogInformation("Explorer opened for ZIP with PID: {Pid}", explorerPid);
+
+        // Wait for explorer window to appear
+        await Task.Delay(1000);
+
+        // Wait for the Explorer window to be active
+        AutoItX.WinWait(directory, "", 5);
+        AutoItX.WinActivate(directory);
+        await Task.Delay(500);
+
+        // Double-click the ZIP file to open it in explorer
+        _logger.LogInformation("Sending Enter key to open ZIP file: {FileName}", fileName);
+        AutoItX.Send("{ENTER}");
+        
+        // Wait for ZIP to open
+        await Task.Delay(2000);
+
+        // Now we should be inside the ZIP file view
+        // Find and select the executable file
+        if (!string.IsNullOrEmpty(executeFile)) {
+            _logger.LogInformation("Typing to select file: {ExecuteFile}", executeFile);
+            // Type the first few characters to find the file
+            AutoItX.Send(executeFile.Substring(0, Math.Min(3, executeFile.Length)));
+            await Task.Delay(500);
+        }
+
+        // Press Enter to execute the file from within the ZIP
+        _logger.LogInformation("Sending Enter key to execute file from ZIP");
+        AutoItX.Send("{ENTER}");
+
+        // Wait for extraction and execution
+        await Task.Delay(3000);
+
+        // Try to find the PID of the started process using .NET Process class
+        var processName = !string.IsNullOrEmpty(executeFile) 
+            ? Path.GetFileNameWithoutExtension(executeFile)
+            : "unknown";
+        
+        try {
+            var processes = System.Diagnostics.Process.GetProcessesByName(processName);
+            if (processes.Length > 0) {
+                // Get the most recently started process
+                var newestProcess = processes.OrderByDescending(p => p.StartTime).FirstOrDefault();
+                if (newestProcess != null) {
+                    int foundPid = newestProcess.Id;
+                    _logger.LogInformation("Found started process {ProcessName} with PID: {Pid}", processName, foundPid);
+                    return foundPid;
+                }
+            }
+        }
+        catch (Exception ex) {
+            _logger.LogWarning(ex, "Error finding process {ProcessName}", processName);
+        }
+
+        _logger.LogWarning("Could not find PID for process {ProcessName}", processName);
+        return explorerPid;
+    }
+
+    private async Task<int> ExecuteIsoViaExplorerAsync(string isoFilePath, string executeFile) {
+        _logger.LogInformation("Opening explorer.exe to mount and execute ISO file: {IsoFilePath}", isoFilePath);
+
+        var directory = Path.GetDirectoryName(isoFilePath);
+        var fileName = Path.GetFileName(isoFilePath);
+
+        if (string.IsNullOrEmpty(directory) || string.IsNullOrEmpty(fileName)) {
+            _logger.LogError("Invalid ISO file path: {IsoFilePath}", isoFilePath);
+            return 0;
+        }
+
+        // Open explorer with the ISO file selected
+        var explorerArgs = $"/select,\"{isoFilePath}\"";
+        int explorerPid = AutoItX.Run($"explorer.exe {explorerArgs}", directory, SW_SHOW);
+
+        if (explorerPid == 0) {
+            _logger.LogError("Failed to open explorer.exe for ISO file");
+            return 0;
+        }
+
+        _logger.LogInformation("Explorer opened for ISO with PID: {Pid}", explorerPid);
+
+        // Wait for explorer window to appear
+        await Task.Delay(1000);
+
+        // Wait for the Explorer window to be active
+        AutoItX.WinWait(directory, "", 5);
+        AutoItX.WinActivate(directory);
+        await Task.Delay(500);
+
+        // Double-click the ISO file to mount it
+        _logger.LogInformation("Sending Enter key to mount ISO file: {FileName}", fileName);
+        AutoItX.Send("{ENTER}");
+        
+        // Wait for ISO to mount
+        await Task.Delay(3000);
+
+        // Store the ISO path for later unmounting
+        lock (_processLock) {
+            _lastMountedIsoPath = isoFilePath;
+        }
+
+        // Open D: drive (common mount point) in explorer
+        _logger.LogInformation("Opening D: drive in explorer");
+        int drivePid = AutoItX.Run("explorer.exe D:\\", "D:\\", SW_SHOW);
+        
+        if (drivePid == 0) {
+            _logger.LogError("Failed to open D: drive in explorer");
+            return 0;
+        }
+
+        await Task.Delay(1500);
+
+        // Wait for D: drive window to be active
+        AutoItX.WinWait("D:", "", 5);
+        AutoItX.WinActivate("D:");
+        await Task.Delay(500);
+
+        // Find and select the executable file
+        if (!string.IsNullOrEmpty(executeFile)) {
+            _logger.LogInformation("Typing to select file: {ExecuteFile}", executeFile);
+            // Type the first few characters to find the file
+            AutoItX.Send(executeFile.Substring(0, Math.Min(3, executeFile.Length)));
+            await Task.Delay(500);
+        }
+
+        // Press Enter to execute the file
+        _logger.LogInformation("Sending Enter key to execute file from ISO");
+        AutoItX.Send("{ENTER}");
+
+        // Wait for execution
+        await Task.Delay(2000);
+
+        // Try to find the PID of the started process using .NET Process class
+        var processName = !string.IsNullOrEmpty(executeFile) 
+            ? Path.GetFileNameWithoutExtension(executeFile)
+            : "unknown";
+        
+        try {
+            var processes = System.Diagnostics.Process.GetProcessesByName(processName);
+            if (processes.Length > 0) {
+                // Get the most recently started process
+                var newestProcess = processes.OrderByDescending(p => p.StartTime).FirstOrDefault();
+                if (newestProcess != null) {
+                    int foundPid = newestProcess.Id;
+                    _logger.LogInformation("Found started process {ProcessName} with PID: {Pid}", processName, foundPid);
+                    return foundPid;
+                }
+            }
+        }
+        catch (Exception ex) {
+            _logger.LogWarning(ex, "Error finding process {ProcessName}", processName);
+        }
+
+        _logger.LogWarning("Could not find PID for process {ProcessName}", processName);
+        return drivePid;
+    }
+
+    public async Task<(bool Success, string? ErrorMessage)> KillLastExecutionAsync() {
+        try {
+            int pidToKill = 0;
+            string? extractionPath = null;
+            string? mountedIsoPath = null;
+
+            lock (_processLock) {
+                if (_lastProcessId == 0) {
+                    _logger.LogWarning("No process to kill - no last execution found");
+                    return (false, "No process to kill - no last execution found");
+                }
+
+                pidToKill = _lastProcessId;
+                extractionPath = _lastExtractionPath;
+                mountedIsoPath = _lastMountedIsoPath;
+            }
+
+            _logger.LogInformation("Attempting to kill process with PID using AutoIt: {Pid}", pidToKill);
+
+            try {
+                // Check if process exists
+                if (AutoItX.ProcessExists(pidToKill.ToString()) == 1) {
+                    // Kill the process using AutoIt
+                    int result = AutoItX.ProcessClose(pidToKill.ToString());
+                    
+                    if (result == 0) {
+                        int errorCode = AutoItX.ErrorCode();
+                        _logger.LogWarning("AutoIt failed to kill process {Pid}, Error code: {ErrorCode}", pidToKill, errorCode);
+                        return (false, $"Failed to kill process (AutoIt error: {errorCode})");
+                    }
+
+                    _logger.LogInformation("Successfully killed process with PID using AutoIt: {Pid}", pidToKill);
+                    
+                    // Wait a bit to ensure process is terminated
+                    await Task.Delay(500);
+                }
+                else {
+                    _logger.LogWarning("Process with PID {Pid} not found - may have already exited", pidToKill);
+                }
+
+                // Clean up extracted directory if exists
+                if (!string.IsNullOrEmpty(extractionPath) && Directory.Exists(extractionPath)) {
+                    try {
+                        _logger.LogInformation("Deleting extracted directory: {ExtractionPath}", extractionPath);
+                        Directory.Delete(extractionPath, recursive: true);
+                        _logger.LogInformation("Successfully deleted extracted directory");
+                    }
+                    catch (Exception ex) {
+                        _logger.LogError(ex, "Failed to delete extracted directory: {ExtractionPath}", extractionPath);
+                    }
+                }
+
+                // Unmount ISO if exists
+                if (!string.IsNullOrEmpty(mountedIsoPath) && File.Exists(mountedIsoPath)) {
+                    try {
+                        _logger.LogInformation("Unmounting ISO file: {IsoPath}", mountedIsoPath);
+
+                        // Use AutoIt to run PowerShell command to dismount the ISO
+                        var dismountCmd = $"powershell.exe -Command \"Dismount-DiskImage -ImagePath '{mountedIsoPath}'\"";
+                        int dismountPid = AutoItX.Run(dismountCmd, "", SW_HIDE);
+                        
+                        if (dismountPid > 0) {
+                            // Wait for dismount command to complete
+                            while (AutoItX.ProcessExists(dismountPid.ToString()) == 1) {
+                                await Task.Delay(100);
+                            }
+                            _logger.LogInformation("Successfully unmounted ISO file");
+                        }
+                        else {
+                            _logger.LogWarning("Failed to start ISO unmount command");
+                        }
+                    }
+                    catch (Exception ex) {
+                        _logger.LogError(ex, "Failed to unmount ISO file: {IsoPath}", mountedIsoPath);
+                    }
+                }
+
+                lock (_processLock) {
+                    _lastExtractionPath = null;
+                    _lastMountedIsoPath = null;
+                }
+
+                return (true, "Process killed successfully using AutoIt Explorer");
+            }
+            catch (Exception ex) {
+                _logger.LogError(ex, "Error in kill process logic for PID: {Pid}", pidToKill);
+                return (false, ex.Message);
+            }
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, "Error killing process with PID: {Pid}", _lastProcessId);
+            return (false, ex.Message);
+        }
+    }
+
+    public async Task<(int Pid, string Stdout, string Stderr)> GetExecutionLogsAsync() {
+        await Task.CompletedTask; // For consistency with async pattern
+
+        lock (_processLock) {
+            return (_lastProcessId, _lastStdout, _lastStderr);
+        }
+    }
+
+    private string? FindExecutableFile(string searchPath, string? executeFile) {
+        var executableExtensions = new[] { ".exe", ".bat", ".com", ".lnk" };
+
+        if (!string.IsNullOrWhiteSpace(executeFile)) {
+            // Use specified file
+            var specifiedFilePath = Path.Combine(searchPath, executeFile);
+            if (File.Exists(specifiedFilePath)) {
+                _logger.LogInformation("Using specified file for execution: {ExecuteFile}", executeFile);
+                return specifiedFilePath;
+            }
+            else {
+                _logger.LogError("Specified file not found: {ExecuteFile}", executeFile);
+                return null;
+            }
+        }
+        else {
+            // Find alphabetically first executable file
+            var allFiles = Directory.GetFiles(searchPath, "*", SearchOption.AllDirectories);
+            var executableFiles = allFiles
+                .Where(f => executableExtensions.Contains(Path.GetExtension(f).ToLowerInvariant()))
+                .OrderBy(f => Path.GetFileName(f))
+                .ToList();
+
+            if (executableFiles.Any()) {
+                var fileToExecute = executableFiles.First();
+                _logger.LogInformation("Selected alphabetically first executable: {FileName}", Path.GetFileName(fileToExecute));
+                return fileToExecute;
+            }
+            else {
+                _logger.LogError("No executable files found in {SearchPath}", searchPath);
+                return null;
+            }
+        }
+    }
+
+    private async Task<(bool Success, string? FilePath, string? ErrorMessage)> HandleIsoFileAsync(string filePath, string? executeFile) {
+        _logger.LogInformation("Detected ISO file: {FileName}, will mount and execute via explorer.exe", Path.GetFileName(filePath));
+
+        // Check if D: drive already exists
+        if (Directory.Exists(@"D:\")) {
+            _logger.LogWarning("D: drive already exists - may interfere with ISO mounting");
+        }
+
+        // Find the file to execute (will be used in ExecuteIsoViaExplorerAsync)
+        var targetExecuteFile = executeFile ?? "*.exe";
+
+        // Store the ISO path for later unmounting
+        lock (_processLock) {
+            _lastMountedIsoPath = filePath;
+        }
+
+        // We don't actually execute here - just validate and return info
+        // The actual execution via explorer will happen in StartProcessAsync
+        return (true, filePath, null);
+    }
+
+    private async Task<(bool Success, string? FilePath, string? ErrorMessage)> HandleZipFileAsync(string filePath, string? executeFile) {
+        _logger.LogInformation("Detected ZIP file: {FileName}, will extract and execute via explorer.exe", Path.GetFileName(filePath));
+
+        var fileExtension = Path.GetExtension(filePath).ToLowerInvariant();
+
+        // Check for RAR files (not supported)
+        if (fileExtension == ".rar") {
+            _logger.LogError("RAR files are not yet supported");
+            return (false, null, "RAR files are not yet supported. Please use ZIP files instead.");
+        }
+
+        // Create extraction directory in user's temp folder
+        var tempPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Temp", Path.GetRandomFileName());
+        Directory.CreateDirectory(tempPath);
+        _logger.LogInformation("Created extraction directory: {TempPath}", tempPath);
+
+        // Extract ZIP file (using .NET since AutoIt doesn't have built-in ZIP extraction)
+        using (var zip = ZipFile.OpenRead(filePath)) {
+            zip.ExtractToDirectory(tempPath, overwriteFiles: true);
+        }
+        _logger.LogInformation("Successfully extracted ZIP file to: {TempPath}", tempPath);
+
+        // Store the extraction path for later cleanup
+        lock (_processLock) {
+            _lastExtractionPath = tempPath;
+        }
+
+        // Find the file to execute
+        var fileToExecute = FindExecutableFile(tempPath, executeFile);
+
+        if (fileToExecute == null) {
+            var errorMsg = !string.IsNullOrWhiteSpace(executeFile)
+                ? $"Specified file '{executeFile}' not found in archive"
+                : "No executable files (.exe, .bat, .com, .lnk) found in archive";
+            return (false, null, errorMsg);
+        }
+
+        return (true, fileToExecute, null);
+    }
+
+    public async Task<(bool Success, string? FilePath, string? ErrorMessage)> PrepareFileForExecutionAsync(string filePath, string? executeFile = null) {
+        // Check if file is ZIP, RAR, or ISO and handle accordingly
+        var fileExtension = Path.GetExtension(filePath).ToLowerInvariant();
+
+        if (fileExtension == ".iso") {
+            return await HandleIsoFileAsync(filePath, executeFile);
+        }
+        else if (fileExtension == ".zip" || fileExtension == ".rar") {
+            return await HandleZipFileAsync(filePath, executeFile);
+        }
+
+        // For regular executables, just return the original path
+        return (true, filePath, null);
+    }
+}
