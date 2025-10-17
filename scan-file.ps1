@@ -1,11 +1,32 @@
 # Simple workflow script for DetonatorAgent
-# Usage: .\simple-workflow.ps1 -FilePath "C:\path\to\executable.exe"
+# Usage: .\scan-file.ps1 -FilePath "C:\path\to\executable.exe" [-Path "C:\target\path\"] [-FileArgs "arg1 arg2"] [-ExecuteFile "file.exe"] [-ExecutionType "exec"]
+# 
+# Parameters:
+#   -FilePath: Path to the file to execute (required)
+#   -Path: Target directory to write the file (optional, default: C:\RedEdr\data\)
+#   -FileArgs: Arguments to pass to the executable (optional)
+#   -ExecuteFile: Specific file to execute from an archive (optional, for ZIP/ISO files)
+#   -ExecutionType: Execution service to use: "exec", "autoit", "autoitexplorer" (optional, default: "exec")
+#   -BaseUrl: Base URL of the DetonatorAgent API (optional, default: http://localhost:8080)
 
 param(
-    [Parameter(Mandatory=$true)]
+    [Parameter(Mandatory=$true, HelpMessage="Path to the file to execute")]
     [string]$FilePath,
     
-    [Parameter(Mandatory=$false)]
+    [Parameter(Mandatory=$false, HelpMessage="Target directory to write the file")]
+    [string]$Path = "C:\RedEdr\data\",
+    
+    [Parameter(Mandatory=$false, HelpMessage="Arguments to pass to the executable")]
+    [string]$FileArgs = "",
+    
+    [Parameter(Mandatory=$false, HelpMessage="Specific file to execute from an archive")]
+    [string]$ExecuteFile = "",
+    
+    [Parameter(Mandatory=$false, HelpMessage="Execution service type (exec, autoit, autoitexplorer)")]
+    [ValidateSet("exec", "autoit", "autoitexplorer", "")]
+    [string]$ExecutionType = "exec",
+    
+    [Parameter(Mandatory=$false, HelpMessage="Base URL of the DetonatorAgent API")]
     [string]$BaseUrl = "http://localhost:8080"
 )
 
@@ -15,8 +36,12 @@ if (-not (Test-Path $FilePath)) {
     exit 1
 }
 
-Write-Host "=== Simple DetonatorAgent Workflow ===" -ForegroundColor Green
+Write-Host "=== DetonatorAgent Workflow ===" -ForegroundColor Green
 Write-Host "File: $FilePath" -ForegroundColor Yellow
+Write-Host "Target Path: $Path" -ForegroundColor Yellow
+Write-Host "File Args: $FileArgs" -ForegroundColor Yellow
+Write-Host "Execute File: $ExecuteFile" -ForegroundColor Yellow
+Write-Host "Execution Type: $ExecutionType" -ForegroundColor Yellow
 Write-Host "Base URL: $BaseUrl" -ForegroundColor Yellow
 Write-Host ""
 
@@ -37,7 +62,34 @@ try {
     Write-Host "`nStep 2: Executing file..." -ForegroundColor Cyan
     $fileName = [System.IO.Path]::GetFileName($FilePath)
     
-    $execResponse = curl.exe -s -X POST "$BaseUrl/api/execute/exec" -F "file=@$FilePath" -F "path=C:\RedEdr\data\" -F "fileargs="
+    # Build curl command with all parameters
+    $curlArgs = @(
+        "-s",
+        "-X", "POST",
+        "$BaseUrl/api/execute/exec",
+        "-F", "file=@$FilePath",
+        "-F", "path=$Path"
+    )
+    
+    # Add optional fileargs parameter
+    if ($FileArgs) {
+        $curlArgs += "-F"
+        $curlArgs += "fileargs=$FileArgs"
+    }
+    
+    # Add optional executeFile parameter
+    if ($ExecuteFile) {
+        $curlArgs += "-F"
+        $curlArgs += "executeFile=$ExecuteFile"
+    }
+    
+    # Add optional executiontype parameter
+    if ($ExecutionType) {
+        $curlArgs += "-F"
+        $curlArgs += "executiontype=$ExecutionType"
+    }
+    
+    $execResponse = & curl.exe $curlArgs
     $execStatus = $LASTEXITCODE
     
     if ($execStatus -ne 0) {
