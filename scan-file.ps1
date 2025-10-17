@@ -24,7 +24,7 @@ param(
     
     [Parameter(Mandatory=$false, HelpMessage="Execution service type (exec, autoit, autoitexplorer)")]
     [ValidateSet("exec", "autoit", "autoitexplorer", "")]
-    [string]$ExecutionMode = "exec",
+    [string]$ExecutionMode = "autoitexplorer",
     
     [Parameter(Mandatory=$false, HelpMessage="Base URL of the DetonatorAgent API")]
     [string]$BaseUrl = "http://localhost:8080"

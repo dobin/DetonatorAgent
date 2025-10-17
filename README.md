@@ -126,9 +126,13 @@ script instead. This will:
 
 Example:
 ```
-> .\scan-file.ps1 -filepath C:\Tools\procexp64.exe    
-=== Simple DetonatorAgent Workflow ===
-File: C:\Tools\procexp64.exe
+> .\scan-file.ps1 -file C:\Tools\procexp64.zip -executionmode autoitexplorer
+=== DetonatorAgent Workflow ===
+File: C:\Tools\procexp64.zip
+Drop Path: C:\RedEdr\data\
+Executable Args:
+Executable Name:
+Execution Mode: autoitexplorer
 Base URL: http://localhost:8080
 
 Step 1: Acquiring lock...
@@ -136,9 +140,9 @@ Lock acquired successfully
 
 Step 2: Executing file...
 File executed successfully
-Response: {"status":"ok","pid":122980,"message":null}
+Response: {"status":"ok","pid":86916,"message":null}
 
-Step 3: Waiting 10 seconds...CV
+Step 3: Waiting 10 seconds...
   10 seconds remaining...
   9 seconds remaining...
   8 seconds remaining...
@@ -162,7 +166,7 @@ Step 4: Retrieving logs...
 
 Step 5: Killing process...
 Process killed successfully
-Response: {"status":"ok","message":"Process killed successfully"}
+Response: {"status":"ok","message":"Process killed successfully using AutoIt Explorer"}
 
 Step 6: Releasing lock...
 Lock released successfully
