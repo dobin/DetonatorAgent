@@ -13,6 +13,8 @@ DetonatorAgent fulfills two purposes:
 So you can use it to see the detection of your MalDev software. It is mostly
 used to see if initial access chains are undetected, for RedTeam engagements.
 
+Note: This has been largely Vibe-Coded.
+
 
 ### Feature: File Execution
 
@@ -68,12 +70,13 @@ curl.exe -X POST http://localhost:8080/api/execute/exec -F "file=@c:\tools\proce
 ```
 
 Optional arguments:
-* `path`: Where the file will be stored (default is `C:\Users\Public\Downloads`)
-* `fileargs`: Parameter to give the exe (e.g. `--help`)
+* `drop_path`: Where the file will be stored (default is `C:\Users\Public\Downloads`)
+* `executable_args`: Parameter to give the exe (e.g. `--help`)
+* `excecution_mode`: One of the execution modes (`exec`, `autoit`, `autoitexplorer`)
 
 
 ```bash
-curl.exe -X POST http://localhost:8080/api/execute/exec -F "file=@c:\tools\procexp64.exe" -F "path=C:\temp\" -F "fileargs=--help"
+curl.exe -X POST http://localhost:8080/api/execute/exec -F "file=@c:\tools\procexp64.exe" -F "drop_path=C:\temp\" -F "executable_args=--help" -F "execution_mode=autoitexplorer"
 ```
 
 
@@ -85,14 +88,15 @@ This will extract the ZIP and run the alphabetically first executable file insid
 curl.exe -X POST http://localhost:8080/api/execute/exec -F "file=@c:\tools\procexp64.zip"
 ```
 
-Note that `path` argument Will define where the ZIP file is being written to (not the exe inside it).
+Note that `drop_path` argument Will define where the ZIP file is being written to (not the exe inside it).
 
 If you want to execute a specific file inside the ZIP:
 ```bash
-curl.exe -X POST http://localhost:8080/api/execute/exec -F "file=@c:\tools\procexp64.zip" -F "executeFile=procexp64.exe"
+curl.exe -X POST http://localhost:8080/api/execute/exec -F "file=@c:\tools\procexp64.zip" -F "executable_name=procexp64.exe"
 ```
 
-* `executeFile`: The file inside the archive to execute
+* `executable_name`: The file inside the archive to execute
+
 
 
 ### Get the EDR logs

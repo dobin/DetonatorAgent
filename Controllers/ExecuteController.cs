@@ -40,24 +40,24 @@ public class ExecuteController : ControllerBase {
 
     [HttpPost("exec")]
     public async Task<ActionResult<ExecuteFileResponse>> ExecuteFile([FromForm] IFormFile file,
-        [FromForm] string? path = null, [FromForm] string? fileargs = null, [FromForm] string? executeFile = null,
-        [FromForm] string? executiontype = null) {
+        [FromForm] string? drop_path = null, [FromForm] string? executable_args = null, [FromForm] string? executable_name = null,
+        [FromForm] string? execution_mode = null) {
         try {
-            // Get the execution service based on executiontype parameter
-            var executionService = _executionServiceProvider.GetExecutionService(executiontype);
+            // Get the execution service based on execution_mode parameter
+            var executionService = _executionServiceProvider.GetExecutionService(execution_mode);
             if (executionService == null) {
                 var availableTypes = string.Join(", ", _executionServiceProvider.GetAvailableExecutionTypes());
                 _logger.LogWarning("Invalid execution type: {ExecutionType}. Available: {AvailableTypes}", 
-                    executiontype, availableTypes);
+                    execution_mode, availableTypes);
                 
                 return BadRequest(new ExecuteFileResponse {
                     Status = "error",
-                    Message = $"Invalid execution type '{executiontype}'. Available types: {availableTypes}"
+                    Message = $"Invalid execution type '{execution_mode}'. Available types: {availableTypes}"
                 });
             }
 
             _logger.LogInformation("Using execution type: {ExecutionType}", 
-                executiontype ?? "default");
+                execution_mode ?? "default");
 
             // Validate file upload
             if (file == null || file.Length == 0 || string.IsNullOrWhiteSpace(file.FileName)) {
@@ -71,7 +71,7 @@ public class ExecuteController : ControllerBase {
             }
 
             // Determine path
-            var targetPath = string.IsNullOrWhiteSpace(path) ? @"C:\RedEdr\data\" : path;
+            var targetPath = string.IsNullOrWhiteSpace(drop_path) ? @"C:\RedEdr\data\" : drop_path;
             if (!targetPath.EndsWith(@"\")) {
                 targetPath += @"\";
             }
@@ -95,7 +95,7 @@ public class ExecuteController : ControllerBase {
             }
 
             // Prepare file for execution (handles ZIP, RAR, or ISO extraction/mounting)
-            var (prepareSuccess, actualFilePath, prepareError) = await executionService.PrepareFileForExecutionAsync(filePath, executeFile);
+            var (prepareSuccess, actualFilePath, prepareError) = await executionService.PrepareFileForExecutionAsync(filePath, executable_name);
             if (!prepareSuccess) {
                 return BadRequest(new ExecuteFileResponse {
                     Status = "error",
@@ -105,7 +105,7 @@ public class ExecuteController : ControllerBase {
 
             // Start the malware (use actualFilePath which might be extracted file or original file)
             _logger.LogInformation("Executing file: {FilePath}", actualFilePath);
-            var (success, pid, errorMessage) = await executionService.StartProcessAsync(actualFilePath!, fileargs);
+            var (success, pid, errorMessage) = await executionService.StartProcessAsync(actualFilePath!, executable_args);
 
             if (!success) {
                 if (errorMessage == "virus") {

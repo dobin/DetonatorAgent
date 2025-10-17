@@ -2,27 +2,27 @@
 # 
 # This script demonstrates how to use all available parameters:
 #   - file: The file to execute
-#   - path: Target directory to write the file
-#   - fileargs: Arguments to pass to the executable
-#   - executeFile: Specific file to execute from an archive (for ZIP/ISO)
-#   - executiontype: Execution service to use (exec, autoit, autoitexplorer)
+#   - drop_path: Target directory to write the file
+#   - executable_args: Arguments to pass to the executable
+#   - executable_name: Specific file to execute from an archive (for ZIP/ISO)
+#   - execution_mode: Execution service to use (exec, autoit, autoitexplorer)
 
 param(
     [Parameter(Mandatory=$false)]
     [string]$TestFile = "C:\tools\procexp64.exe",
     
     [Parameter(Mandatory=$false)]
-    [string]$Path = "C:\RedEdr\data\",
+    [string]$DropPath = "C:\RedEdr\data\",
     
     [Parameter(Mandatory=$false)]
-    [string]$FileArgs = "",
+    [string]$ExecutableArgs = "",
     
     [Parameter(Mandatory=$false)]
-    [string]$ExecuteFile = "",
+    [string]$ExecutableName = "",
     
     [Parameter(Mandatory=$false)]
     [ValidateSet("exec", "autoit", "autoitexplorer", "")]
-    [string]$ExecutionType = "exec",
+    [string]$ExecutionMode = "exec",
     
     [Parameter(Mandatory=$false)]
     [string]$BaseUrl = "http://localhost:8080"
@@ -30,10 +30,10 @@ param(
 
 Write-Host "=== Testing /api/execute/exec endpoint ===" -ForegroundColor Green
 Write-Host "Test File: $TestFile" -ForegroundColor Yellow
-Write-Host "Path: $Path" -ForegroundColor Yellow
-Write-Host "File Args: $FileArgs" -ForegroundColor Yellow
-Write-Host "Execute File: $ExecuteFile" -ForegroundColor Yellow
-Write-Host "Execution Type: $ExecutionType" -ForegroundColor Yellow
+Write-Host "Drop Path: $DropPath" -ForegroundColor Yellow
+Write-Host "Executable Args: $ExecutableArgs" -ForegroundColor Yellow
+Write-Host "Executable Name: $ExecutableName" -ForegroundColor Yellow
+Write-Host "Execution Mode: $ExecutionMode" -ForegroundColor Yellow
 Write-Host ""
 
 # Check if test file exists
@@ -48,22 +48,22 @@ $curlArgs = @(
     "-X", "POST",
     "$BaseUrl/api/execute/exec",
     "-F", "file=@$TestFile",
-    "-F", "path=$Path"
+    "-F", "drop_path=$DropPath"
 )
 
-if ($FileArgs) {
+if ($ExecutableArgs) {
     $curlArgs += "-F"
-    $curlArgs += "fileargs=$FileArgs"
+    $curlArgs += "executable_args=$ExecutableArgs"
 }
 
-if ($ExecuteFile) {
+if ($ExecutableName) {
     $curlArgs += "-F"
-    $curlArgs += "executeFile=$ExecuteFile"
+    $curlArgs += "executable_name=$ExecutableName"
 }
 
-if ($ExecutionType) {
+if ($ExecutionMode) {
     $curlArgs += "-F"
-    $curlArgs += "executiontype=$ExecutionType"
+    $curlArgs += "execution_mode=$ExecutionMode"
 }
 
 Write-Host "Executing curl command..." -ForegroundColor Cyan
@@ -87,10 +87,10 @@ Write-Host "Basic execution with default (exec):" -ForegroundColor Yellow
 Write-Host '  .\test-exec-endpoint.ps1 -TestFile "C:\path\to\file.exe"' -ForegroundColor Gray
 Write-Host ""
 Write-Host "With arguments:" -ForegroundColor Yellow
-Write-Host '  .\test-exec-endpoint.ps1 -TestFile "C:\path\to\file.exe" -FileArgs "-arg1 -arg2"' -ForegroundColor Gray
+Write-Host '  .\test-exec-endpoint.ps1 -TestFile "C:\path\to\file.exe" -ExecutableArgs "-arg1 -arg2"' -ForegroundColor Gray
 Write-Host ""
 Write-Host "With specific execution type:" -ForegroundColor Yellow
-Write-Host '  .\test-exec-endpoint.ps1 -TestFile "C:\path\to\file.exe" -ExecutionType "autoit"' -ForegroundColor Gray
+Write-Host '  .\test-exec-endpoint.ps1 -TestFile "C:\path\to\file.exe" -ExecutionMode "autoit"' -ForegroundColor Gray
 Write-Host ""
 Write-Host "Execute file from ZIP:" -ForegroundColor Yellow
-Write-Host '  .\test-exec-endpoint.ps1 -TestFile "C:\path\to\archive.zip" -ExecuteFile "malware.exe"' -ForegroundColor Gray
+Write-Host '  .\test-exec-endpoint.ps1 -TestFile "C:\path\to\archive.zip" -ExecutableName "malware.exe"' -ForegroundColor Gray

@@ -213,7 +213,7 @@ public class LinuxExecutionService : IExecutionService {
         }
     }
 
-    public async Task<(bool Success, string? FilePath, string? ErrorMessage)> PrepareFileForExecutionAsync(string filePath, string? executeFile = null) {
+    public async Task<(bool Success, string? FilePath, string? ErrorMessage)> PrepareFileForExecutionAsync(string filePath, string? executable_name = null) {
         // Linux version doesn't support archive extraction or ISO mounting
         // Just return the original file path
         await Task.CompletedTask;

@@ -8,9 +8,9 @@
   - Supports ZIP file extraction to %LOCALAPPDATA%\Temp
   - Parameters:
     - `file`: File to upload (required)
-    - `path`: Target directory (optional, defaults to C:\RedEdr\data\)
-    - `fileargs`: Command line arguments (optional)
-    - `executeFile`: Specific file to execute from ZIP (optional, defaults to alphabetically first .exe/.bat/.com/.lnk)
+    - `drop_path`: Target directory (optional, defaults to C:\RedEdr\data\)
+    - `executable_args`: Command line arguments (optional)
+    - `executable_name`: Specific file to execute from ZIP (optional, defaults to alphabetically first .exe/.bat/.com/.lnk)
 - **POST /api/execute/kill** - Kill the last executed process
 
 ### Logs Controller

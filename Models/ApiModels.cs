@@ -4,10 +4,10 @@ namespace DetonatorAgent.Models;
 
 public class ExecuteFileRequest {
     public IFormFile File { get; set; } = null!;
-    public string? Path { get; set; }
-    public string? FileArgs { get; set; }
-    public string? ExecuteFile { get; set; }
-    public string? ExecutionType { get; set; }
+    public string? DropPath { get; set; }
+    public string? ExecutableArgs { get; set; }
+    public string? ExecutableName { get; set; }
+    public string? ExecutionMode { get; set; }
 }
 
 public class ExecuteFileResponse {

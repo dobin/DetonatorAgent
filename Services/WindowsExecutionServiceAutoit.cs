@@ -229,18 +229,18 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
         }
     }
 
-    private string? FindExecutableFile(string searchPath, string? executeFile) {
+    private string? FindExecutableFile(string searchPath, string? executable_name) {
         var executableExtensions = new[] { ".exe", ".bat", ".com", ".lnk" };
 
-        if (!string.IsNullOrWhiteSpace(executeFile)) {
+        if (!string.IsNullOrWhiteSpace(executable_name)) {
             // Use specified file
-            var specifiedFilePath = Path.Combine(searchPath, executeFile);
+            var specifiedFilePath = Path.Combine(searchPath, executable_name);
             if (File.Exists(specifiedFilePath)) {
-                _logger.LogInformation("Using specified file for execution: {ExecuteFile}", executeFile);
+                _logger.LogInformation("Using specified file for execution: {ExecuteFile}", executable_name);
                 return specifiedFilePath;
             }
             else {
-                _logger.LogError("Specified file not found: {ExecuteFile}", executeFile);
+                _logger.LogError("Specified file not found: {ExecuteFile}", executable_name);
                 return null;
             }
         }
@@ -264,7 +264,7 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
         }
     }
 
-    private async Task<(bool Success, string? FilePath, string? ErrorMessage)> HandleIsoFileAsync(string filePath, string? executeFile) {
+    private async Task<(bool Success, string? FilePath, string? ErrorMessage)> HandleIsoFileAsync(string filePath, string? executable_name) {
         _logger.LogInformation("Detected ISO file: {FileName}, mounting it using AutoIt", Path.GetFileName(filePath));
 
         // Mount ISO using AutoIt by running it
@@ -295,11 +295,11 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
         }
 
         // Find the file to execute on D: drive
-        var fileToExecute = FindExecutableFile(@"D:\", executeFile);
+        var fileToExecute = FindExecutableFile(@"D:\", executable_name);
 
         if (fileToExecute == null) {
-            var errorMsg = !string.IsNullOrWhiteSpace(executeFile)
-                ? $"Specified file '{executeFile}' not found on mounted ISO"
+            var errorMsg = !string.IsNullOrWhiteSpace(executable_name)
+                ? $"Specified file '{executable_name}' not found on mounted ISO"
                 : "No executable files (.exe, .bat, .com, .lnk) found on mounted ISO";
             return (false, null, errorMsg);
         }
@@ -307,7 +307,7 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
         return (true, fileToExecute, null);
     }
 
-    private async Task<(bool Success, string? FilePath, string? ErrorMessage)> HandleZipFileAsync(string filePath, string? executeFile) {
+    private async Task<(bool Success, string? FilePath, string? ErrorMessage)> HandleZipFileAsync(string filePath, string? executable_name) {
         _logger.LogInformation("Detected archive file: {FileName}, extracting to temp directory using AutoIt", Path.GetFileName(filePath));
 
         var fileExtension = Path.GetExtension(filePath).ToLowerInvariant();
@@ -335,11 +335,11 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
         }
 
         // Find the file to execute
-        var fileToExecute = FindExecutableFile(tempPath, executeFile);
+        var fileToExecute = FindExecutableFile(tempPath, executable_name);
 
         if (fileToExecute == null) {
-            var errorMsg = !string.IsNullOrWhiteSpace(executeFile)
-                ? $"Specified file '{executeFile}' not found in archive"
+            var errorMsg = !string.IsNullOrWhiteSpace(executable_name)
+                ? $"Specified file '{executable_name}' not found in archive"
                 : "No executable files (.exe, .bat, .com, .lnk) found in archive";
             return (false, null, errorMsg);
         }
@@ -347,15 +347,15 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
         return (true, fileToExecute, null);
     }
 
-    public async Task<(bool Success, string? FilePath, string? ErrorMessage)> PrepareFileForExecutionAsync(string filePath, string? executeFile = null) {
+    public async Task<(bool Success, string? FilePath, string? ErrorMessage)> PrepareFileForExecutionAsync(string filePath, string? executable_name = null) {
         // Check if file is ZIP, RAR, or ISO and handle accordingly
         var fileExtension = Path.GetExtension(filePath).ToLowerInvariant();
 
         if (fileExtension == ".iso") {
-            return await HandleIsoFileAsync(filePath, executeFile);
+            return await HandleIsoFileAsync(filePath, executable_name);
         }
         else if (fileExtension == ".zip" || fileExtension == ".rar") {
-            return await HandleZipFileAsync(filePath, executeFile);
+            return await HandleZipFileAsync(filePath, executable_name);
         }
 
         // For regular executables, just return the original path

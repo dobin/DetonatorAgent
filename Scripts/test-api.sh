@@ -1,20 +1,30 @@
 #!/bin/bash
 # Test the DetonatorAgent API on Linux
 #
-# Usage: ./test-api.sh [test_file] [path] [fileargs] [executefile] [executiontype]
+# Usage: ./test-api.sh [test_file] [drop_path] [executable_args] [executable_name] [execution_mode]
+#
+# Parameters:
+#   test_file: Path to the file to execute (optional, default: /tmp/test.sh)
+#   drop_path: Target directory to write the file (optional, default: /tmp/)
+#   executable_args: Arguments to pass to the executable (optional)
+#   executable_name: Specific file to execute from an archive (optional)
+#   execution_mode: Execution service type - "linux" for Linux (optional, default: linux)
+# Test the DetonatorAgent API on Linux
+#
+# Usage: ./test-api.sh [test_file] [path] [executable_args] [executable_name] [execution_mode]
 #
 # Parameters:
 #   test_file: Path to the file to execute (optional, default: /tmp/test.sh)
 #   path: Target directory to write the file (optional, default: /tmp/)
-#   fileargs: Arguments to pass to the executable (optional)
-#   executefile: Specific file to execute from an archive (optional)
-#   executiontype: Execution service type - "linux" for Linux (optional, default: linux)
+#   executable_args: Arguments to pass to the executable (optional)
+#   executable_name: Specific file to execute from an archive (optional)
+#   execution_mode: Execution service type - "linux" for Linux (optional, default: linux)
 
 TEST_FILE="${1:-/tmp/test.sh}"
-TARGET_PATH="${2:-/tmp/}"
-FILE_ARGS="${3:-}"
-EXECUTE_FILE="${4:-}"
-EXECUTION_TYPE="${5:-linux}"
+DROP_PATH="${2:-/tmp/}"
+EXECUTABLE_ARGS="${3:-}"
+EXECUTABLE_NAME="${4:-}"
+EXECUTION_MODE="${5:-linux}"
 BASE_URL="http://localhost:8080"
 
 echo "=== Testing DetonatorAgent API on Linux ==="
@@ -56,10 +66,10 @@ fi
 # Test /api/execute/exec endpoint with file upload
 echo -e "\nTesting POST /api/execute/exec..."
 echo "Test File: $TEST_FILE"
-echo "Target Path: $TARGET_PATH"
-echo "File Args: $FILE_ARGS"
-echo "Execute File: $EXECUTE_FILE"
-echo "Execution Type: $EXECUTION_TYPE"
+echo "Drop Path: $DROP_PATH"
+echo "Executable Args: $EXECUTABLE_ARGS"
+echo "Executable Name: $EXECUTABLE_NAME"
+echo "Execution Mode: $EXECUTION_MODE"
 echo ""
 
 # Create a test file if it doesn't exist
@@ -72,18 +82,18 @@ if [ ! -f "$TEST_FILE" ]; then
 fi
 
 # Build curl command with all parameters
-CURL_CMD="curl -s -w \"%{http_code}\" -X POST \"$BASE_URL/api/execute/exec\" -F \"file=@$TEST_FILE\" -F \"path=$TARGET_PATH\""
+CURL_CMD="curl -s -w \"%{http_code}\" -X POST \"$BASE_URL/api/execute/exec\" -F \"file=@$TEST_FILE\" -F \"drop_path=$DROP_PATH\""
 
-if [ -n "$FILE_ARGS" ]; then
-    CURL_CMD="$CURL_CMD -F \"fileargs=$FILE_ARGS\""
+if [ -n "$EXECUTABLE_ARGS" ]; then
+    CURL_CMD="$CURL_CMD -F \"executable_args=$EXECUTABLE_ARGS\""
 fi
 
-if [ -n "$EXECUTE_FILE" ]; then
-    CURL_CMD="$CURL_CMD -F \"executeFile=$EXECUTE_FILE\""
+if [ -n "$EXECUTABLE_NAME" ]; then
+    CURL_CMD="$CURL_CMD -F \"executable_name=$EXECUTABLE_NAME\""
 fi
 
-if [ -n "$EXECUTION_TYPE" ]; then
-    CURL_CMD="$CURL_CMD -F \"executiontype=$EXECUTION_TYPE\""
+if [ -n "$EXECUTION_MODE" ]; then
+    CURL_CMD="$CURL_CMD -F \"execution_mode=$EXECUTION_MODE\""
 fi
 
 echo "Executing: $CURL_CMD"

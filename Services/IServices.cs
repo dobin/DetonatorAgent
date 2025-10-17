@@ -11,7 +11,7 @@ public interface IExecutionService {
     Task<(bool Success, int Pid, string? ErrorMessage)> StartProcessAsync(string filePath, string? arguments = null);
     Task<(bool Success, string? ErrorMessage)> KillLastExecutionAsync();
     Task<(int Pid, string Stdout, string Stderr)> GetExecutionLogsAsync();
-    Task<(bool Success, string? FilePath, string? ErrorMessage)> PrepareFileForExecutionAsync(string filePath, string? executeFile = null);
+    Task<(bool Success, string? FilePath, string? ErrorMessage)> PrepareFileForExecutionAsync(string filePath, string? executable_name = null);
 }
 
 public interface IEdrService {

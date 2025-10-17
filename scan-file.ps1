@@ -1,47 +1,47 @@
 # Simple workflow script for DetonatorAgent
-# Usage: .\scan-file.ps1 -FilePath "C:\path\to\executable.exe" [-Path "C:\target\path\"] [-FileArgs "arg1 arg2"] [-ExecuteFile "file.exe"] [-ExecutionType "exec"]
+# Usage: .\scan-file.ps1 -File "C:\path\to\executable.exe" [-DropPath "C:\target\path\"] [-ExecutableArgs "arg1 arg2"] [-ExecutableName "file.exe"] [-ExecutionMode "exec"]
 # 
 # Parameters:
-#   -FilePath: Path to the file to execute (required)
-#   -Path: Target directory to write the file (optional, default: C:\RedEdr\data\)
-#   -FileArgs: Arguments to pass to the executable (optional)
-#   -ExecuteFile: Specific file to execute from an archive (optional, for ZIP/ISO files)
-#   -ExecutionType: Execution service to use: "exec", "autoit", "autoitexplorer" (optional, default: "exec")
+#   -File: Path to the file to execute (required)
+#   -DropPath: Target directory to write the file (optional, default: C:\RedEdr\data\)
+#   -ExecutableArgs: Arguments to pass to the executable (optional)
+#   -ExecutableName: Specific file to execute from an archive (optional, for ZIP/ISO files)
+#   -ExecutionMode: Execution service to use: "exec", "autoit", "autoitexplorer" (optional, default: "exec")
 #   -BaseUrl: Base URL of the DetonatorAgent API (optional, default: http://localhost:8080)
 
 param(
     [Parameter(Mandatory=$true, HelpMessage="Path to the file to execute")]
-    [string]$FilePath,
+    [string]$File,
     
     [Parameter(Mandatory=$false, HelpMessage="Target directory to write the file")]
-    [string]$Path = "C:\RedEdr\data\",
+    [string]$DropPath = "C:\RedEdr\data\",
     
     [Parameter(Mandatory=$false, HelpMessage="Arguments to pass to the executable")]
-    [string]$FileArgs = "",
+    [string]$ExecutableArgs = "",
     
     [Parameter(Mandatory=$false, HelpMessage="Specific file to execute from an archive")]
-    [string]$ExecuteFile = "",
+    [string]$ExecutableName = "",
     
     [Parameter(Mandatory=$false, HelpMessage="Execution service type (exec, autoit, autoitexplorer)")]
     [ValidateSet("exec", "autoit", "autoitexplorer", "")]
-    [string]$ExecutionType = "exec",
+    [string]$ExecutionMode = "exec",
     
     [Parameter(Mandatory=$false, HelpMessage="Base URL of the DetonatorAgent API")]
     [string]$BaseUrl = "http://localhost:8080"
 )
 
 # Validate input file exists
-if (-not (Test-Path $FilePath)) {
-    Write-Host "Error: File not found: $FilePath" -ForegroundColor Red
+if (-not (Test-Path $File)) {
+    Write-Host "Error: File not found: $File" -ForegroundColor Red
     exit 1
 }
 
 Write-Host "=== DetonatorAgent Workflow ===" -ForegroundColor Green
-Write-Host "File: $FilePath" -ForegroundColor Yellow
-Write-Host "Target Path: $Path" -ForegroundColor Yellow
-Write-Host "File Args: $FileArgs" -ForegroundColor Yellow
-Write-Host "Execute File: $ExecuteFile" -ForegroundColor Yellow
-Write-Host "Execution Type: $ExecutionType" -ForegroundColor Yellow
+Write-Host "File: $File" -ForegroundColor Yellow
+Write-Host "Drop Path: $DropPath" -ForegroundColor Yellow
+Write-Host "Executable Args: $ExecutableArgs" -ForegroundColor Yellow
+Write-Host "Executable Name: $ExecutableName" -ForegroundColor Yellow
+Write-Host "Execution Mode: $ExecutionMode" -ForegroundColor Yellow
 Write-Host "Base URL: $BaseUrl" -ForegroundColor Yellow
 Write-Host ""
 
@@ -60,33 +60,33 @@ Write-Host "Lock acquired successfully" -ForegroundColor Green
 try {
     # Step 2: Execute file
     Write-Host "`nStep 2: Executing file..." -ForegroundColor Cyan
-    $fileName = [System.IO.Path]::GetFileName($FilePath)
+    $fileName = [System.IO.Path]::GetFileName($File)
     
     # Build curl command with all parameters
     $curlArgs = @(
         "-s",
         "-X", "POST",
         "$BaseUrl/api/execute/exec",
-        "-F", "file=@$FilePath",
-        "-F", "path=$Path"
+        "-F", "file=@$File",
+        "-F", "drop_path=$DropPath"
     )
     
-    # Add optional fileargs parameter
-    if ($FileArgs) {
+    # Add optional executable_args parameter
+    if ($ExecutableArgs) {
         $curlArgs += "-F"
-        $curlArgs += "fileargs=$FileArgs"
+        $curlArgs += "executable_args=$ExecutableArgs"
     }
     
-    # Add optional executeFile parameter
-    if ($ExecuteFile) {
+    # Add optional executable_name parameter
+    if ($ExecutableName) {
         $curlArgs += "-F"
-        $curlArgs += "executeFile=$ExecuteFile"
+        $curlArgs += "executable_name=$ExecutableName"
     }
     
-    # Add optional executiontype parameter
-    if ($ExecutionType) {
+    # Add optional execution_mode parameter
+    if ($ExecutionMode) {
         $curlArgs += "-F"
-        $curlArgs += "executiontype=$ExecutionType"
+        $curlArgs += "execution_mode=$ExecutionMode"
     }
     
     $execResponse = & curl.exe $curlArgs

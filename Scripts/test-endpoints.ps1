@@ -21,8 +21,8 @@ Write-Host "`n1. Testing /api/execute/exec endpoint..."
 try {
     $response = curl.exe -s -X POST http://localhost:8080/api/execute/exec `
         -F "file=@$testFile" `
-        -F "path=C:\temp\" `
-        -F "fileargs="
+        -F "drop_path=C:\temp\" `
+        -F "executable_args="
     
     Write-Host "Response from /api/execute/exec:"
     Write-Host $response
