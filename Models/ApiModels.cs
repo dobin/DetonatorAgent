@@ -7,6 +7,7 @@ public class ExecuteFileRequest {
     public string? Path { get; set; }
     public string? FileArgs { get; set; }
     public string? ExecuteFile { get; set; }
+    public string? ExecutionType { get; set; }
 }
 
 public class ExecuteFileResponse {
@@ -37,6 +38,11 @@ public class ExecutionLogsResponse {
 public class AgentLogsResponse {
     public List<string> Logs { get; set; } = new();
     public int Count { get; set; }
+}
+
+public class ExecutionTypesResponse {
+    public List<string> Types { get; set; } = new();
+    public string Default { get; set; } = string.Empty;
 }
 
 public class LockStatusResponse {

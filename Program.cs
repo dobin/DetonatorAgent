@@ -17,11 +17,18 @@ builder.Services.AddSingleton<IAgentLogService>(provider => provider.GetRequired
 
 // Register platform-specific services
 if (OperatingSystem.IsWindows()) {
+    // Register all Windows execution service implementations
+    builder.Services.AddSingleton<IExecutionService, WindowsExecutionServiceExec>();
+    builder.Services.AddSingleton<IExecutionService, WindowsExecutionServiceAutoit>();
     builder.Services.AddSingleton<IExecutionService, WindowsExecutionServiceAutoItExplorer>();
 }
 else {
+    // Register Linux execution service implementation
     builder.Services.AddSingleton<IExecutionService, LinuxExecutionService>();
 }
+
+// Register the execution service provider (must be registered after the individual services)
+builder.Services.AddSingleton<IExecutionServiceProvider, ExecutionServiceProvider>();
 
 // Register EDR service based on command line argument
 var edrService = args.FirstOrDefault(arg => arg.StartsWith("--edr="))?.Split('=')[1]?.ToLower() ?? "windowsdefender";
