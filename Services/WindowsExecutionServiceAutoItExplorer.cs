@@ -22,6 +22,8 @@ public class WindowsExecutionServiceAutoItExplorer : IExecutionService {
     private const int SW_HIDE = 0;
     private const int SW_MAXIMIZE = 3;
 
+    public string ExecutionTypeName => "autoitexplorer";
+
     public WindowsExecutionServiceAutoItExplorer(ILogger<WindowsExecutionServiceAutoItExplorer> logger, IEdrService edrService) {
         _logger = logger;
         _edrService = edrService;
@@ -167,7 +169,7 @@ public class WindowsExecutionServiceAutoItExplorer : IExecutionService {
         _logger.LogInformation("Explorer opened with PID: {Pid}", explorerPid);
 
         // Wait for explorer window to appear
-        await Task.Delay(1000);
+        await Task.Delay(500);
 
         // Wait for the Explorer window to be active (using the directory name as window title)
         AutoItX.WinWait(directory, "", 5);
@@ -179,7 +181,7 @@ public class WindowsExecutionServiceAutoItExplorer : IExecutionService {
         AutoItX.Send("{ENTER}");
 
         // Wait for the file to start executing
-        await Task.Delay(2000);
+        await Task.Delay(500);
 
         // Try to find the PID of the started process using .NET Process class
         var processName = Path.GetFileNameWithoutExtension(filePath);
@@ -204,181 +206,6 @@ public class WindowsExecutionServiceAutoItExplorer : IExecutionService {
         return explorerPid;
     }
 
-    private async Task<int> ExecuteZipViaExplorerAsync(string zipFilePath, string executeFile) {
-        _logger.LogInformation("Opening explorer.exe to handle ZIP file: {ZipFilePath}", zipFilePath);
-
-        var directory = Path.GetDirectoryName(zipFilePath);
-        var fileName = Path.GetFileName(zipFilePath);
-
-        if (string.IsNullOrEmpty(directory) || string.IsNullOrEmpty(fileName)) {
-            _logger.LogError("Invalid ZIP file path: {ZipFilePath}", zipFilePath);
-            return 0;
-        }
-
-        // Open explorer with the ZIP file selected
-        var explorerArgs = $"/select,\"{zipFilePath}\"";
-        int explorerPid = AutoItX.Run($"explorer.exe {explorerArgs}", directory, SW_SHOW);
-
-        if (explorerPid == 0) {
-            _logger.LogError("Failed to open explorer.exe for ZIP file");
-            return 0;
-        }
-
-        _logger.LogInformation("Explorer opened for ZIP with PID: {Pid}", explorerPid);
-
-        // Wait for explorer window to appear
-        await Task.Delay(1000);
-
-        // Wait for the Explorer window to be active
-        AutoItX.WinWait(directory, "", 5);
-        AutoItX.WinActivate(directory);
-        await Task.Delay(500);
-
-        // Double-click the ZIP file to open it in explorer
-        _logger.LogInformation("Sending Enter key to open ZIP file: {FileName}", fileName);
-        AutoItX.Send("{ENTER}");
-        
-        // Wait for ZIP to open
-        await Task.Delay(2000);
-
-        // Now we should be inside the ZIP file view
-        // Find and select the executable file
-        if (!string.IsNullOrEmpty(executeFile)) {
-            _logger.LogInformation("Typing to select file: {ExecuteFile}", executeFile);
-            // Type the first few characters to find the file
-            AutoItX.Send(executeFile.Substring(0, Math.Min(3, executeFile.Length)));
-            await Task.Delay(500);
-        }
-
-        // Press Enter to execute the file from within the ZIP
-        _logger.LogInformation("Sending Enter key to execute file from ZIP");
-        AutoItX.Send("{ENTER}");
-
-        // Wait for extraction and execution
-        await Task.Delay(3000);
-
-        // Try to find the PID of the started process using .NET Process class
-        var processName = !string.IsNullOrEmpty(executeFile) 
-            ? Path.GetFileNameWithoutExtension(executeFile)
-            : "unknown";
-        
-        try {
-            var processes = System.Diagnostics.Process.GetProcessesByName(processName);
-            if (processes.Length > 0) {
-                // Get the most recently started process
-                var newestProcess = processes.OrderByDescending(p => p.StartTime).FirstOrDefault();
-                if (newestProcess != null) {
-                    int foundPid = newestProcess.Id;
-                    _logger.LogInformation("Found started process {ProcessName} with PID: {Pid}", processName, foundPid);
-                    return foundPid;
-                }
-            }
-        }
-        catch (Exception ex) {
-            _logger.LogWarning(ex, "Error finding process {ProcessName}", processName);
-        }
-
-        _logger.LogWarning("Could not find PID for process {ProcessName}", processName);
-        return explorerPid;
-    }
-
-    private async Task<int> ExecuteIsoViaExplorerAsync(string isoFilePath, string executeFile) {
-        _logger.LogInformation("Opening explorer.exe to mount and execute ISO file: {IsoFilePath}", isoFilePath);
-
-        var directory = Path.GetDirectoryName(isoFilePath);
-        var fileName = Path.GetFileName(isoFilePath);
-
-        if (string.IsNullOrEmpty(directory) || string.IsNullOrEmpty(fileName)) {
-            _logger.LogError("Invalid ISO file path: {IsoFilePath}", isoFilePath);
-            return 0;
-        }
-
-        // Open explorer with the ISO file selected
-        var explorerArgs = $"/select,\"{isoFilePath}\"";
-        int explorerPid = AutoItX.Run($"explorer.exe {explorerArgs}", directory, SW_SHOW);
-
-        if (explorerPid == 0) {
-            _logger.LogError("Failed to open explorer.exe for ISO file");
-            return 0;
-        }
-
-        _logger.LogInformation("Explorer opened for ISO with PID: {Pid}", explorerPid);
-
-        // Wait for explorer window to appear
-        await Task.Delay(1000);
-
-        // Wait for the Explorer window to be active
-        AutoItX.WinWait(directory, "", 5);
-        AutoItX.WinActivate(directory);
-        await Task.Delay(500);
-
-        // Double-click the ISO file to mount it
-        _logger.LogInformation("Sending Enter key to mount ISO file: {FileName}", fileName);
-        AutoItX.Send("{ENTER}");
-        
-        // Wait for ISO to mount
-        await Task.Delay(3000);
-
-        // Store the ISO path for later unmounting
-        lock (_processLock) {
-            _lastMountedIsoPath = isoFilePath;
-        }
-
-        // Open D: drive (common mount point) in explorer
-        _logger.LogInformation("Opening D: drive in explorer");
-        int drivePid = AutoItX.Run("explorer.exe D:\\", "D:\\", SW_SHOW);
-        
-        if (drivePid == 0) {
-            _logger.LogError("Failed to open D: drive in explorer");
-            return 0;
-        }
-
-        await Task.Delay(1500);
-
-        // Wait for D: drive window to be active
-        AutoItX.WinWait("D:", "", 5);
-        AutoItX.WinActivate("D:");
-        await Task.Delay(500);
-
-        // Find and select the executable file
-        if (!string.IsNullOrEmpty(executeFile)) {
-            _logger.LogInformation("Typing to select file: {ExecuteFile}", executeFile);
-            // Type the first few characters to find the file
-            AutoItX.Send(executeFile.Substring(0, Math.Min(3, executeFile.Length)));
-            await Task.Delay(500);
-        }
-
-        // Press Enter to execute the file
-        _logger.LogInformation("Sending Enter key to execute file from ISO");
-        AutoItX.Send("{ENTER}");
-
-        // Wait for execution
-        await Task.Delay(2000);
-
-        // Try to find the PID of the started process using .NET Process class
-        var processName = !string.IsNullOrEmpty(executeFile) 
-            ? Path.GetFileNameWithoutExtension(executeFile)
-            : "unknown";
-        
-        try {
-            var processes = System.Diagnostics.Process.GetProcessesByName(processName);
-            if (processes.Length > 0) {
-                // Get the most recently started process
-                var newestProcess = processes.OrderByDescending(p => p.StartTime).FirstOrDefault();
-                if (newestProcess != null) {
-                    int foundPid = newestProcess.Id;
-                    _logger.LogInformation("Found started process {ProcessName} with PID: {Pid}", processName, foundPid);
-                    return foundPid;
-                }
-            }
-        }
-        catch (Exception ex) {
-            _logger.LogWarning(ex, "Error finding process {ProcessName}", processName);
-        }
-
-        _logger.LogWarning("Could not find PID for process {ProcessName}", processName);
-        return drivePid;
-    }
 
     public async Task<(bool Success, string? ErrorMessage)> KillLastExecutionAsync() {
         try {
@@ -400,25 +227,49 @@ public class WindowsExecutionServiceAutoItExplorer : IExecutionService {
             _logger.LogInformation("Attempting to kill process with PID using AutoIt: {Pid}", pidToKill);
 
             try {
-                // Check if process exists
-                if (AutoItX.ProcessExists(pidToKill.ToString()) == 1) {
-                    // Kill the process using AutoIt
-                    int result = AutoItX.ProcessClose(pidToKill.ToString());
+                // Try to kill the process using AutoIt - don't check if it exists first, just try to kill it
+                int result = AutoItX.ProcessClose(pidToKill.ToString());
+                
+                if (result == 0) {
+                    int errorCode = AutoItX.ErrorCode();
+                    _logger.LogWarning("AutoIt failed to kill process {Pid}, Error code: {ErrorCode}. Trying taskkill as fallback.", pidToKill, errorCode);
                     
-                    if (result == 0) {
-                        int errorCode = AutoItX.ErrorCode();
-                        _logger.LogWarning("AutoIt failed to kill process {Pid}, Error code: {ErrorCode}", pidToKill, errorCode);
-                        return (false, $"Failed to kill process (AutoIt error: {errorCode})");
-                    }
+                    // Fallback to taskkill if AutoIt fails
+                    try {
+                        var startInfo = new System.Diagnostics.ProcessStartInfo {
+                            FileName = "taskkill",
+                            Arguments = $"/F /PID {pidToKill}",
+                            UseShellExecute = false,
+                            RedirectStandardOutput = true,
+                            RedirectStandardError = true,
+                            CreateNoWindow = true
+                        };
 
-                    _logger.LogInformation("Successfully killed process with PID using AutoIt: {Pid}", pidToKill);
-                    
-                    // Wait a bit to ensure process is terminated
-                    await Task.Delay(500);
+                        using var process = System.Diagnostics.Process.Start(startInfo);
+                        if (process != null) {
+                            await process.WaitForExitAsync();
+                            var output = await process.StandardOutput.ReadToEndAsync();
+                            var error = await process.StandardError.ReadToEndAsync();
+                            
+                            if (process.ExitCode == 0) {
+                                _logger.LogInformation("Successfully killed process {Pid} using taskkill fallback", pidToKill);
+                            } else {
+                                _logger.LogError("taskkill failed for PID {Pid}. Output: {Output}, Error: {Error}", pidToKill, output, error);
+                                return (false, $"Failed to kill process: {error}");
+                            }
+                        }
+                    }
+                    catch (Exception fallbackEx) {
+                        _logger.LogError(fallbackEx, "Fallback taskkill also failed for PID {Pid}", pidToKill);
+                        return (false, $"Failed to kill process with both AutoIt and taskkill: {fallbackEx.Message}");
+                    }
                 }
                 else {
-                    _logger.LogWarning("Process with PID {Pid} not found - may have already exited", pidToKill);
+                    _logger.LogInformation("Successfully killed process with PID using AutoIt: {Pid}", pidToKill);
                 }
+                
+                // Wait a bit to ensure process is terminated
+                await Task.Delay(500);
 
                 // Clean up extracted directory if exists
                 if (!string.IsNullOrEmpty(extractionPath) && Directory.Exists(extractionPath)) {

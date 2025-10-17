@@ -16,9 +16,9 @@ public class ExecutionServiceProvider : IExecutionServiceProvider {
         _logger = logger;
         _executionServices = new Dictionary<string, IExecutionService>(StringComparer.OrdinalIgnoreCase);
 
-        // Register all execution services by their type name
+        // Register all execution services by their ExecutionTypeName
         foreach (var service in executionServices) {
-            var serviceName = GetExecutionTypeName(service);
+            var serviceName = service.ExecutionTypeName;
             _executionServices[serviceName] = service;
             _logger.LogInformation("Registered execution service: {ServiceName} ({ServiceType})", 
                 serviceName, service.GetType().Name);
@@ -29,7 +29,7 @@ public class ExecutionServiceProvider : IExecutionServiceProvider {
             ?? throw new InvalidOperationException("No execution services registered");
 
         _logger.LogInformation("Default execution service: {DefaultService}", 
-            GetExecutionTypeName(_defaultService));
+            _defaultService.ExecutionTypeName);
     }
 
     public IExecutionService? GetExecutionService(string? executionType) {
@@ -64,7 +64,7 @@ public class ExecutionServiceProvider : IExecutionServiceProvider {
     }
 
     public string GetDefaultExecutionTypeName() {
-        return GetExecutionTypeName(_defaultService);
+        return _defaultService.ExecutionTypeName;
     }
 
     public IExecutionService? GetLastUsedExecutionService() {
@@ -77,26 +77,5 @@ public class ExecutionServiceProvider : IExecutionServiceProvider {
         lock (_lock) {
             _lastUsedService = service;
         }
-    }
-
-    private string GetExecutionTypeName(IExecutionService service) {
-        var typeName = service.GetType().Name;
-
-        // Map service type names to execution type identifiers
-        if (typeName.Contains("Exec", StringComparison.OrdinalIgnoreCase) && !typeName.Contains("Execution")) {
-            return "exec";
-        }
-        else if (typeName.Contains("AutoItExplorer", StringComparison.OrdinalIgnoreCase)) {
-            return "autoitexplorer";
-        }
-        else if (typeName.Contains("AutoIt", StringComparison.OrdinalIgnoreCase)) {
-            return "autoit";
-        }
-        else if (typeName.Contains("Linux", StringComparison.OrdinalIgnoreCase)) {
-            return "linux";
-        }
-
-        // Fallback to lowercase type name
-        return typeName.ToLowerInvariant();
     }
 }

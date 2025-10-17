@@ -7,6 +7,11 @@ public interface ILockService {
 }
 
 public interface IExecutionService {
+    /// <summary>
+    /// Gets the execution type name for this service (e.g., "exec", "autoit", "autoitexplorer")
+    /// </summary>
+    string ExecutionTypeName { get; }
+
     Task<bool> WriteMalwareAsync(string filePath, byte[] content);
     Task<(bool Success, int Pid, string? ErrorMessage)> StartProcessAsync(string filePath, string? arguments = null);
     Task<(bool Success, string? ErrorMessage)> KillLastExecutionAsync();

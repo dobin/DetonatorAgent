@@ -16,6 +16,8 @@ public class WindowsExecutionServiceExec : IExecutionService {
     private string? _lastMountedIsoPath = null;
     private readonly object _processLock = new object();
 
+    public string ExecutionTypeName => "exec";
+
     public WindowsExecutionServiceExec(ILogger<WindowsExecutionServiceExec> logger, IEdrService edrService) {
         _logger = logger;
         _edrService = edrService;

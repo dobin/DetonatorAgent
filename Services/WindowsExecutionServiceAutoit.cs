@@ -20,6 +20,8 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
     // AutoIt constants
     private const int SW_HIDE = 0;
 
+    public string ExecutionTypeName => "autoit";
+
     public WindowsExecutionServiceAutoit(ILogger<WindowsExecutionServiceAutoit> logger, IEdrService edrService) {
         _logger = logger;
         _edrService = edrService;
@@ -145,25 +147,49 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
             _logger.LogInformation("Attempting to kill process with PID using AutoIt: {Pid}", pidToKill);
 
             try {
-                // Check if process exists
-                if (AutoItX.ProcessExists(pidToKill.ToString()) == 1) {
-                    // Kill the process using AutoIt
-                    int result = AutoItX.ProcessClose(pidToKill.ToString());
+                // Try to kill the process using AutoIt - don't check if it exists first, just try to kill it
+                int result = AutoItX.ProcessClose(pidToKill.ToString());
+                
+                if (result == 0) {
+                    int errorCode = AutoItX.ErrorCode();
+                    _logger.LogWarning("AutoIt failed to kill process {Pid}, Error code: {ErrorCode}. Trying taskkill as fallback.", pidToKill, errorCode);
                     
-                    if (result == 0) {
-                        int errorCode = AutoItX.ErrorCode();
-                        _logger.LogWarning("AutoIt failed to kill process {Pid}, Error code: {ErrorCode}", pidToKill, errorCode);
-                        return (false, $"Failed to kill process (AutoIt error: {errorCode})");
-                    }
+                    // Fallback to taskkill if AutoIt fails
+                    try {
+                        var startInfo = new System.Diagnostics.ProcessStartInfo {
+                            FileName = "taskkill",
+                            Arguments = $"/F /PID {pidToKill}",
+                            UseShellExecute = false,
+                            RedirectStandardOutput = true,
+                            RedirectStandardError = true,
+                            CreateNoWindow = true
+                        };
 
-                    _logger.LogInformation("Successfully killed process with PID using AutoIt: {Pid}", pidToKill);
-                    
-                    // Wait a bit to ensure process is terminated
-                    await Task.Delay(500);
+                        using var process = System.Diagnostics.Process.Start(startInfo);
+                        if (process != null) {
+                            await process.WaitForExitAsync();
+                            var output = await process.StandardOutput.ReadToEndAsync();
+                            var error = await process.StandardError.ReadToEndAsync();
+                            
+                            if (process.ExitCode == 0) {
+                                _logger.LogInformation("Successfully killed process {Pid} using taskkill fallback", pidToKill);
+                            } else {
+                                _logger.LogError("taskkill failed for PID {Pid}. Output: {Output}, Error: {Error}", pidToKill, output, error);
+                                return (false, $"Failed to kill process: {error}");
+                            }
+                        }
+                    }
+                    catch (Exception fallbackEx) {
+                        _logger.LogError(fallbackEx, "Fallback taskkill also failed for PID {Pid}", pidToKill);
+                        return (false, $"Failed to kill process with both AutoIt and taskkill: {fallbackEx.Message}");
+                    }
                 }
                 else {
-                    _logger.LogWarning("Process with PID {Pid} not found - may have already exited", pidToKill);
+                    _logger.LogInformation("Successfully killed process with PID using AutoIt: {Pid}", pidToKill);
                 }
+                
+                // Wait a bit to ensure process is terminated
+                await Task.Delay(500);
 
                 // Clean up extracted directory if exists
                 if (!string.IsNullOrEmpty(extractionPath) && Directory.Exists(extractionPath)) {

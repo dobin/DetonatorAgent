@@ -12,6 +12,8 @@ public class LinuxExecutionService : IExecutionService {
     private Process? _lastProcess = null;
     private readonly object _processLock = new object();
 
+    public string ExecutionTypeName => "linux";
+
     public LinuxExecutionService(ILogger<LinuxExecutionService> logger, IEdrService edrService) {
         _logger = logger;
         _edrService = edrService;
