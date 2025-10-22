@@ -1,45 +1,57 @@
 # DetonatorAgent
 
-A cross-platform Web API for MalDev: execution and EDR log collection.
+A cross-platform Web API for MalDev execution and EDR log collection for RedTeamers.
 
 
 ## Purpose
 
-DetonatorAgent fulfills two purposes: 
+DetonatorAgent fulfills two purposes:
 
 * File execution
-* EDR log collection. 
+* EDR log collection
 
-So you can use it to see the detection of your MalDev software. It is mostly
-used to see if initial access chains are undetected, for RedTeam engagements.
+It is mainly used to see if initial access chains are undetected for RedTeam engagements.
+So if your malware is detected (and if yes, why), or not.
+
+It serves more as inspiration on how to implement this yourselves than a polished product.
+It is closely related to [RedEdr](https://github.com/dobin/RedEdr), which collects the same
+telemetry as an EDR does. And can be used with [Detonator](https://github.com/dobin/Detonator)
+to more reliably detonate MalDev, as shown in [detonator.r00ted.ch](https://detonator.r00ted.ch).
+A presentation "Detonator - Repeatable Malware Technique Testing" (given at RTS EMEA 25) will
+be made publicly available sometimes maybe. 
 
 Note: This has been largely Vibe-Coded.
 
 
-### Feature: File Execution
+## Feature: File Execution
 
 The `/api/execute/exec` API will execute the given file. So the EDR (or AV) can do its thing.
-It is intended to simulate a user clicking the malware: It will use the Windows integrated
-default app association to "click" the file.
+It is intended to simulate a user "clicking" the malware: It will use the Windows integrated
+default app association to start the file (be it .exe, .lnk or others). 
 
 Supported file extension: 
 * `.exe`: Direct execution
 * `.zip`: Extract and execute
-* `.iso`: Extract and execute
+* `.iso`: Mount and execute
 
 There are different execution types: 
 * `Exec`: Uses Windows `Process.Start()` with `UseShellExecute = true`
 * `AutoIt`:  Uses AutoIt `AutoItX.Run()` in similar style as `Exec`
-* **`AutoItExplorer`**: Most realistic! Opens a `explorer.exe` window with AutoIt and "click" the files
+* **`AutoItExplorer`**: Most realistic! Opens a `explorer.exe` window with AutoIt and "click" the file(s)
 
 
 ![AutoItExplorer Demo](Doc/detonatoragent-autoitexplorer-zip.gif)
 
 
-### Feature: EDR Log retrieval
+## Feature: EDR Log retrieval
 
 The `/api/logs/edr` will return the log files of your EDR product. 
-Currently only Microsoft Defender / MDE is supported. 
+
+Currently only Microsoft Defender / MDE is supported.
+Currently it returns all Defender event logs entries between execution of `/api/exec/execute` and calling
+of this API. If nothing has been executed before, it returns all event logs.
+
+See `scan-file.ps1` how to preferably use this. 
 
 Example:
 ```
@@ -60,7 +72,7 @@ dotnet run
 
 The API will be available at:
 - HTTP: http://localhost:8080
-- Swagger UI: https://localhost:8080/swagger
+- Swagger UI: http://localhost:8080/swagger
 
 
 ## Usage: With curl
@@ -73,24 +85,29 @@ curl.exe -X POST http://localhost:8080/api/execute/exec -F "file=@c:\tools\proce
 
 Optional arguments:
 * `drop_path`: Where the file will be stored (default is `C:\Users\Public\Downloads`)
-* `executable_args`: Parameter to give the exe (e.g. `--help`)
 * `excecution_mode`: One of the execution modes (`exec`, `autoit`, `autoitexplorer`)
+* `executable_args`: Parameter to give the exe (e.g. `--help`) (only for `exec` mode)
 
 
 ```bash
-curl.exe -X POST http://localhost:8080/api/execute/exec -F "file=@c:\tools\procexp64.exe" -F "drop_path=C:\temp\" -F "executable_args=--help" -F "execution_mode=autoitexplorer"
+curl.exe -X POST http://localhost:8080/api/execute/exec -F "file=@c:\tools\procexp64.zip" -F "drop_path=C:\temp\" -F "execution_mode=autoitexplorer"
+```
+
+```bash
+curl.exe -X POST http://localhost:8080/api/execute/exec -F "file=@c:\tools\procexp64.exe" -F "drop_path=C:\temp\" -F "executable_args=--help" -F "execution_mode=exec"
 ```
 
 
-### Execute ZIP/ISO file
+### Execute container (ZIP/ISO) file
 
-This will extract the ZIP and run the alphabetically first executable file inside it:
+This will extract the ZIP into a random subdirectory in `%TEMP%` (as Windows explorer zip)
+and runs the alphabetically first executable file inside it:
 
 ```bash
 curl.exe -X POST http://localhost:8080/api/execute/exec -F "file=@c:\tools\procexp64.zip"
 ```
 
-Note that `drop_path` argument Will define where the ZIP file is being written to (not the exe inside it).
+Note that `drop_path` argument Will define where the ZIP file is being written to (not the exe inside it / where its going to be extracted).
 
 If you want to execute a specific file inside the ZIP:
 ```bash
@@ -100,9 +117,7 @@ curl.exe -X POST http://localhost:8080/api/execute/exec -F "file=@c:\tools\proce
 * `executable_name`: The file inside the archive to execute
 
 
-
 ### Get the EDR logs
-
 
 ### Cleanup
 
