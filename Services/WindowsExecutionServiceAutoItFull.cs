@@ -7,8 +7,8 @@ using AutoIt;
 namespace DetonatorAgent.Services;
 
 [SupportedOSPlatform("windows")]
-public class WindowsExecutionServiceAutoItExplorer : IExecutionService {
-    private readonly ILogger<WindowsExecutionServiceAutoItExplorer> _logger;
+public class WindowsExecutionServiceAutoItFull : IExecutionService {
+    private readonly ILogger<WindowsExecutionServiceAutoItFull> _logger;
     private readonly IEdrService _edrService;
     private int _lastProcessId = 0;
     private string? _lastExplorerWindowTitle = null;
@@ -25,19 +25,27 @@ public class WindowsExecutionServiceAutoItExplorer : IExecutionService {
 
     public string ExecutionTypeName => "autoitexplorer";
 
-    public WindowsExecutionServiceAutoItExplorer(ILogger<WindowsExecutionServiceAutoItExplorer> logger, IEdrService edrService) {
+    public WindowsExecutionServiceAutoItFull(ILogger<WindowsExecutionServiceAutoItFull> logger, IEdrService edrService) {
         _logger = logger;
         _edrService = edrService;
     }
 
     public async Task<bool> WriteMalwareAsync(string filePath, byte[] content, byte? xorKey = null) {
         try {
-            _logger.LogInformation("Writing malware to: {FilePath}", filePath);
+            _logger.LogInformation("Writing malware using AutoIt Explorer method to: {FilePath}", filePath);
+
+            var directory = Path.GetDirectoryName(filePath);
+            var fileName = Path.GetFileName(filePath);
+
+            if (string.IsNullOrEmpty(directory) || string.IsNullOrEmpty(fileName)) {
+                _logger.LogError("Invalid file path: {FilePath}", filePath);
+                return false;
+            }
 
             // Ensure directory exists
-            var directory = Path.GetDirectoryName(filePath);
-            if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory)) {
+            if (!Directory.Exists(directory)) {
                 Directory.CreateDirectory(directory);
+                _logger.LogInformation("Created directory: {Directory}", directory);
             }
 
             // XOR decode the content if xorKey is provided
@@ -49,8 +57,94 @@ public class WindowsExecutionServiceAutoItExplorer : IExecutionService {
                     content.Length, finalContent.Length);
             }
 
-            await File.WriteAllBytesAsync(filePath, finalContent);
-            _logger.LogInformation("Successfully wrote malware to: {FilePath}", filePath);
+            // First, write the content to a temporary file in the temp directory
+            var tempPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString() + Path.GetExtension(filePath));
+            await File.WriteAllBytesAsync(tempPath, finalContent);
+            _logger.LogInformation("Wrote temporary file: {TempPath}", tempPath);
+
+            // Open Explorer window to the destination directory
+            var explorerArgs = $"\"{directory}\"";
+            int explorerPid = AutoItX.Run($"explorer.exe {explorerArgs}", directory, SW_SHOW);
+
+            if (explorerPid == 0) {
+                _logger.LogError("Failed to open explorer.exe for destination directory");
+                File.Delete(tempPath);
+                return false;
+            }
+
+            _logger.LogInformation("Opened Explorer window for directory: {Directory} with PID: {Pid}", directory, explorerPid);
+
+            // Wait for Explorer window to appear and become active
+            await Task.Delay(1000);
+            var folderName = Path.GetFileName(directory);
+            AutoItX.WinWait(folderName, "", 10);
+            AutoItX.WinActivate(folderName);
+            await Task.Delay(500);
+
+            // Open a second Explorer window with the temp file selected
+            var tempExplorerArgs = $"/select,\"{tempPath}\"";
+            int tempExplorerPid = AutoItX.Run($"explorer.exe {tempExplorerArgs}", Path.GetTempPath(), SW_SHOW);
+
+            if (tempExplorerPid == 0) {
+                _logger.LogError("Failed to open explorer.exe for temp file");
+                AutoItX.WinClose(folderName);
+                File.Delete(tempPath);
+                return false;
+            }
+
+            _logger.LogInformation("Opened Explorer window with temp file selected");
+            await Task.Delay(1000);
+
+            // Copy the file using Ctrl+C
+            _logger.LogInformation("Copying file with Ctrl+C");
+            AutoItX.Send("^c");
+            await Task.Delay(500);
+
+            // Close the temp Explorer window
+            AutoItX.Send("!{F4}");
+            await Task.Delay(500);
+
+            // Activate the destination Explorer window and paste
+            AutoItX.WinActivate(folderName);
+            await Task.Delay(500);
+            
+            _logger.LogInformation("Pasting file with Ctrl+V into destination directory");
+            AutoItX.Send("^v");
+            await Task.Delay(1000);
+
+            // If the file already exists, handle the replace dialog
+            // Look for a dialog that might ask to replace the file
+            if (AutoItX.WinExists("Confirm File Replace") == 1) {
+                _logger.LogInformation("File replace dialog detected, confirming replace");
+                AutoItX.WinActivate("Confirm File Replace");
+                await Task.Delay(300);
+                AutoItX.Send("{ENTER}"); // Confirm replace
+                await Task.Delay(500);
+            }
+
+            // Close the destination Explorer window
+            AutoItX.WinClose(folderName);
+            await Task.Delay(300);
+
+            // Clean up temp file
+            try {
+                if (File.Exists(tempPath)) {
+                    File.Delete(tempPath);
+                    _logger.LogInformation("Deleted temporary file: {TempPath}", tempPath);
+                }
+            }
+            catch (Exception cleanupEx) {
+                _logger.LogWarning(cleanupEx, "Failed to delete temporary file: {TempPath}", tempPath);
+            }
+
+            // Verify the file was written
+            if (File.Exists(filePath)) {
+                _logger.LogInformation("Successfully wrote malware using AutoIt Explorer method to: {FilePath}", filePath);
+            }
+            else {
+                _logger.LogError("File not found after AutoIt write operation: {FilePath}", filePath);
+                return false;
+            }
 
             // Start EDR collection after writing malware (Windows only)
             try {
@@ -70,7 +164,7 @@ public class WindowsExecutionServiceAutoItExplorer : IExecutionService {
             return true;
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "Failed to write malware to: {FilePath}", filePath);
+            _logger.LogError(ex, "Failed to write malware using AutoIt Explorer method to: {FilePath}", filePath);
             return false;
         }
     }

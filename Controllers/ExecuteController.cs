@@ -41,7 +41,7 @@ public class ExecuteController : ControllerBase {
     [HttpPost("exec")]
     public async Task<ActionResult<ExecuteFileResponse>> ExecuteFile([FromForm] IFormFile file,
         [FromForm] string? drop_path = null, [FromForm] string? executable_args = null, [FromForm] string? executable_name = null,
-        [FromForm] string? execution_mode = null) {
+        [FromForm] string? execution_mode = null, [FromForm] int? xor_key = null) {
         try {
             // Get the execution service based on execution_mode parameter
             var executionService = _executionServiceProvider.GetExecutionService(execution_mode);
@@ -58,6 +58,20 @@ public class ExecuteController : ControllerBase {
 
             _logger.LogInformation("Using execution type: {ExecutionType}", 
                 execution_mode ?? "default");
+
+            // Validate xor_key parameter
+            byte? xorKeyByte = null;
+            if (xor_key.HasValue) {
+                if (xor_key.Value < 0 || xor_key.Value > 255) {
+                    _logger.LogWarning("Invalid xor_key value: {XorKey}. Must be between 0 and 255", xor_key.Value);
+                    return BadRequest(new ExecuteFileResponse {
+                        Status = "error",
+                        Message = $"Invalid xor_key value: {xor_key.Value}. Must be between 0 and 255"
+                    });
+                }
+                xorKeyByte = (byte)xor_key.Value;
+                _logger.LogInformation("XOR key provided: {XorKey}", xorKeyByte);
+            }
 
             // Validate file upload
             if (file == null || file.Length == 0 || string.IsNullOrWhiteSpace(file.FileName)) {
@@ -86,7 +100,7 @@ public class ExecuteController : ControllerBase {
 
             // Write the malware (always write first, whether ZIP or executable)
             _logger.LogInformation("Writing file: {FilePath}", filePath);
-            if (!await executionService.WriteMalwareAsync(filePath, fileContent)) {
+            if (!await executionService.WriteMalwareAsync(filePath, fileContent, xorKeyByte)) {
                 _logger.LogError("Failed to write file to {FilePath}", filePath);
                 return StatusCode(500, new ExecuteFileResponse {
                     Status = "error",

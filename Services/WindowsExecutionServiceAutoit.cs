@@ -27,7 +27,7 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
         _edrService = edrService;
     }
 
-    public async Task<bool> WriteMalwareAsync(string filePath, byte[] content) {
+    public async Task<bool> WriteMalwareAsync(string filePath, byte[] content, byte? xorKey = null) {
         try {
             _logger.LogInformation("Writing malware to: {FilePath}", filePath);
 
@@ -37,7 +37,16 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
                 Directory.CreateDirectory(directory);
             }
 
-            await File.WriteAllBytesAsync(filePath, content);
+            // XOR decode the content if xorKey is provided
+            byte[] finalContent = content;
+            if (xorKey.HasValue) {
+                _logger.LogInformation("XOR decoding file with key: {XorKey}", xorKey.Value);
+                finalContent = XorDecoder.Decode(content, xorKey.Value);
+                _logger.LogInformation("XOR decoding completed. Original size: {OriginalSize}, Decoded size: {DecodedSize}", 
+                    content.Length, finalContent.Length);
+            }
+
+            await File.WriteAllBytesAsync(filePath, finalContent);
             _logger.LogInformation("Successfully wrote malware to: {FilePath}", filePath);
 
             // Start EDR collection after writing malware (Windows only)
