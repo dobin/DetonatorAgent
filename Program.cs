@@ -3,6 +3,13 @@ using DetonatorAgent.EdrPlugins;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Configure port from command line argument or use default from appsettings.json (8080)
+var portArg = args.FirstOrDefault(arg => arg.StartsWith("--port="))?.Split('=')[1];
+if (!string.IsNullOrEmpty(portArg))
+{
+    builder.WebHost.UseUrls($"http://0.0.0.0:{portArg}");
+}
+
 // Add services to the container.
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
