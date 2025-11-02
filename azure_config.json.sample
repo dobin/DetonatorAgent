@@ -1,0 +1,6 @@
+{
+  "StorageAccount": "detonator1",
+  "ContainerName": "scripts",
+  "BlobName": "detonatoragent.zip",
+  "SasToken": "..."
+}
