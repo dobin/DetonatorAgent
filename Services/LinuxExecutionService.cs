@@ -29,16 +29,7 @@ public class LinuxExecutionService : IExecutionService {
                 Directory.CreateDirectory(directory);
             }
 
-            // XOR decode the content if xorKey is provided
-            byte[] finalContent = content;
-            if (xorKey.HasValue) {
-                _logger.LogInformation("XOR decoding file with key: {XorKey}", xorKey.Value);
-                finalContent = XorDecoder.Decode(content, xorKey.Value);
-                _logger.LogInformation("XOR decoding completed. Original size: {OriginalSize}, Decoded size: {DecodedSize}", 
-                    content.Length, finalContent.Length);
-            }
-
-            await File.WriteAllBytesAsync(filePath, finalContent);
+            await FileWriter.WriteAsync(filePath, content, xorKey);
 
             // Set executable permissions on Linux
             var chmod = Process.Start("chmod", $"+x \"{filePath}\"");

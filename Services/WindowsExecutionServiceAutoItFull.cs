@@ -32,8 +32,7 @@ public class WindowsExecutionServiceAutoItFull : IExecutionService {
 
     public async Task<bool> WriteMalwareAsync(string filePath, byte[] content, byte? xorKey = null) {
         try {
-            _logger.LogInformation("Writing malware using AutoIt Explorer method to: {FilePath}", filePath);
-
+            _logger.LogInformation("Writing malware to: {FilePath}, xorkey: {XorKey}", filePath, xorKey.HasValue ? xorKey.Value.ToString() : "none");
             var directory = Path.GetDirectoryName(filePath);
             var fileName = Path.GetFileName(filePath);
 
@@ -48,18 +47,9 @@ public class WindowsExecutionServiceAutoItFull : IExecutionService {
                 _logger.LogInformation("Created directory: {Directory}", directory);
             }
 
-            // XOR decode the content if xorKey is provided
-            byte[] finalContent = content;
-            if (xorKey.HasValue) {
-                _logger.LogInformation("XOR decoding file with key: {XorKey}", xorKey.Value);
-                finalContent = XorDecoder.Decode(content, xorKey.Value);
-                _logger.LogInformation("XOR decoding completed. Original size: {OriginalSize}, Decoded size: {DecodedSize}", 
-                    content.Length, finalContent.Length);
-            }
-
             // First, write the content to a temporary file in the temp directory
             var tempPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString() + Path.GetExtension(filePath));
-            await File.WriteAllBytesAsync(tempPath, finalContent);
+            await FileWriter.WriteAsync(tempPath, content, xorKey);
             _logger.LogInformation("Wrote temporary file: {TempPath}", tempPath);
 
             // Open Explorer window to the destination directory
