@@ -17,8 +17,8 @@ public class EdrController : ControllerBase
         _logger = logger;
     }
 
-    [HttpGet("correlation")]
-    public ActionResult<DeviceCorrelationResponse> GetCorrelationInfo()
+    [HttpGet("sysinfo")]
+    public ActionResult<DeviceCorrelationResponse> GetSystemInfo()
     {
         var response = new DeviceCorrelationResponse
         {
