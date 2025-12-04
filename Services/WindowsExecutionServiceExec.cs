@@ -64,12 +64,39 @@ public class WindowsExecutionServiceExec : IExecutionService {
         try {
             _logger.LogInformation("Executing malware: {FilePath} with args: {Arguments}", filePath, arguments ?? "");
 
-            var startInfo = new ProcessStartInfo {
-                FileName = filePath,
-                Arguments = arguments ?? "",
-                UseShellExecute = true,
-                CreateNoWindow = true
-            };
+            // Check if the file is a DLL
+            var fileExtension = Path.GetExtension(filePath).ToLowerInvariant();
+            bool isDll = fileExtension == ".dll";
+
+            ProcessStartInfo startInfo;
+            
+            if (isDll) {
+                // Use rundll32.exe to execute DLL files
+                _logger.LogInformation("Detected DLL file, using rundll32.exe to execute");
+
+                // Build rundll32 command: rundll32.exe <dllpath>,<argument>
+                if (string.IsNullOrEmpty(arguments)) {
+                    // Error
+                    _logger.LogError("No entry point specified for DLL execution (as argument)");
+                    return (false, 0, "No entry point specified for DLL execution (as argument)");
+                }
+                string rundll32Args = $"\"{filePath}\",{arguments}";
+                
+                startInfo = new ProcessStartInfo {
+                    FileName = "rundll32.exe",
+                    Arguments = rundll32Args,
+                    UseShellExecute = true,
+                    CreateNoWindow = true
+                };
+            }
+            else {
+                startInfo = new ProcessStartInfo {
+                    FileName = filePath,
+                    Arguments = arguments ?? "",
+                    UseShellExecute = true,
+                    CreateNoWindow = true
+                };
+            }
 
             var process = Process.Start(startInfo);
             if (process == null) {
@@ -77,10 +104,18 @@ public class WindowsExecutionServiceExec : IExecutionService {
                 return (false, 0, "Failed to start process");
             }
 
-            // Try to get the PID - may not be available with UseShellExecute
+            // Try to get the PID - may not be available with UseShellExecute or DLLs
             int pid = 0;
             try {
-                pid = process.Id;
+                if (isDll) {
+                    // For DLLs executed via rundll32, we don't have a meaningful PID
+                    // The PID would be of rundll32.exe itself, not the DLL code
+                    _logger.LogInformation("DLL execution: PID not available (rundll32.exe is the host process)");
+                    pid = 0;
+                }
+                else {
+                    pid = process.Id;
+                }
             }
             catch {
                 // If we can't get the PID, use a placeholder
@@ -268,7 +303,7 @@ public class WindowsExecutionServiceExec : IExecutionService {
     }
 
     private string? FindExecutableFile(string searchPath, string? executable_name) {
-        var executableExtensions = new[] { ".exe", ".bat", ".com", ".lnk" };
+        var executableExtensions = new[] { ".exe", ".bat", ".com", ".lnk", ".dll" };
 
         if (!string.IsNullOrWhiteSpace(executable_name)) {
             // Use specified file
