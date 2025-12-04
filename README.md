@@ -36,8 +36,7 @@ Supported file extension:
 
 There are different execution types: 
 * `Exec`: Uses Windows `Process.Start()` with `UseShellExecute = true`
-* `AutoIt`:  Uses AutoIt `AutoItX.Run()` in similar style as `Exec`
-* **`AutoItExplorer`**: Most realistic! Opens a `explorer.exe` window with AutoIt and "click" the file(s)
+* **`AutoIt`**: Most realistic! Opens a `explorer.exe` window with AutoIt and "click" the file(s)
 
 
 ![AutoItExplorer Demo](Doc/detonatoragent-autoitexplorer-zip.gif)
