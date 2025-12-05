@@ -15,29 +15,6 @@ public class ExecuteController : ControllerBase {
         _logger = logger;
     }
 
-    [HttpGet("types")]
-    public ActionResult<ExecutionTypesResponse> GetExecutionTypes() {
-        try {
-            var availableTypes = _executionServiceProvider.GetAvailableExecutionTypes().ToList();
-            var defaultType = _executionServiceProvider.GetDefaultExecutionTypeName();
-            
-            _logger.LogInformation("Returning {Count} available execution types, default: {Default}", 
-                availableTypes.Count, defaultType);
-
-            return Ok(new ExecutionTypesResponse {
-                Types = availableTypes,
-                Default = defaultType
-            });
-        }
-        catch (Exception ex) {
-            _logger.LogError(ex, "Error in /api/execute/types");
-            return StatusCode(500, new ExecutionTypesResponse {
-                Types = new List<string>(),
-                Default = string.Empty
-            });
-        }
-    }
-
     [HttpPost("exec")]
     public async Task<ActionResult<ExecuteFileResponse>> ExecuteFile([FromForm] IFormFile file,
         [FromForm] string? drop_path = null, [FromForm] string? executable_args = null, [FromForm] string? executable_name = null,
