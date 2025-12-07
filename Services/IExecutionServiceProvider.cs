@@ -7,7 +7,7 @@ public interface IExecutionServiceProvider {
     /// <summary>
     /// Gets the execution service for the specified type
     /// </summary>
-    /// <param name="executionType">The execution type (e.g., "exec", "autoit", "autoitexplorer")</param>
+    /// <param name="executionType">The execution type (e.g., "exec", "autoit")</param>
     /// <returns>The execution service implementation, or null if not found</returns>
     IExecutionService? GetExecutionService(string? executionType);
 

@@ -83,9 +83,8 @@ function Invoke-ExecuteFile {
         [string]$ExecutableArgs = ""
     )
     
-    Write-TestHeader "Testing: $TestName"
+    Write-TestHeader "Testing: $TestName with $ExecutionMode"
     Write-TestInfo "File: $FilePath"
-    Write-TestInfo "Execution Mode: $ExecutionMode"
     
     # Check if test file exists
     if (-not (Test-Path $FilePath)) {
@@ -271,6 +270,7 @@ if (-not $ToolsPath) {
 
 ## ExecutionMode: exec
 
+# .exe, .exe in .zip
 if ( 1 ) {
     # Test 1: Execute testexe.exe
     $TestResults += Invoke-ExecuteFile `
@@ -283,7 +283,10 @@ if ( 1 ) {
         -FilePath "$ToolsPath\testexe.zip" `
         -TestName "Execute testexe.zip (archive extraction)" `
         -ExecutionMode "exec"
+}
 
+# .dll, .dll in .zip
+if ( 1 ) {
     # Test 3: Execute testdll.dll
     $TestResults += Invoke-ExecuteFile `
         -FilePath "$ToolsPath\testdll.dll" `
@@ -299,21 +302,40 @@ if ( 1 ) {
         -ExecutableArgs "process"
 }
 
-
+# eicar.com, eicar.com in .zip
 if ( 1 ) {
-    # ExecutionMode: autoitexplorer
+    # Test 3: Execute eicar.com
+    $TestResults += Invoke-ExecuteFile `
+        -FilePath "$ToolsPath\eicar.com" `
+        -TestName "Execute eicar.com" `
+        -ExecutionMode "exec" `
+
+    # Test 4: Execute eicar.com (archive extraction)
+    $TestResults += Invoke-ExecuteFile `
+        -FilePath "$ToolsPath\eicar.zip" `
+        -TestName "Execute eicar.zip (archive extraction)" `
+        -ExecutionMode "exec" `
+}
+
+
+## ExecutionMode: AutoIt
+
+# .exe, .exe in .zip
+if ( 1 ) {
+    # ExecutionMode: autoit
 
     # Test 1: Execute testexe.exe
     $TestResults += Invoke-ExecuteFile `
         -FilePath "$ToolsPath\testexe.exe" `
         -TestName "Execute testexe.exe" `
-        -ExecutionMode "autoitexplorer"
-
+        -ExecutionMode "autoit"
+}
+if ( 1 ) {
     # Test 2: Execute testexe.zip (contains testexe.exe)
     $TestResults += Invoke-ExecuteFile `
         -FilePath "$ToolsPath\testexe.zip" `
         -TestName "Execute testexe.zip (archive extraction)" `
-        -ExecutionMode "autoitexplorer"
+        -ExecutionMode "autoit"
 }
 
 # Print summary

@@ -6,7 +6,7 @@
 #   -DropPath: Target directory to write the file (optional, default: C:\RedEdr\data\)
 #   -ExecutableArgs: Arguments to pass to the executable (optional)
 #   -ExecutableName: Specific file to execute from an archive (optional, for ZIP/ISO files)
-#   -ExecutionMode: Execution service to use: "exec", "autoit", "autoitexplorer" (optional, default: "exec")
+#   -ExecutionMode: Execution service to use: "exec", "autoit"
 #   -BaseUrl: Base URL of the DetonatorAgent API (optional, default: http://localhost:8080)
 
 param(
@@ -22,9 +22,9 @@ param(
     [Parameter(Mandatory=$false, HelpMessage="Specific file to execute from an archive")]
     [string]$ExecutableName = "",
     
-    [Parameter(Mandatory=$false, HelpMessage="Execution service type (exec, autoit, autoitexplorer)")]
-    [ValidateSet("exec", "autoit", "autoitexplorer", "")]
-    [string]$ExecutionMode = "autoitexplorer",
+    [Parameter(Mandatory=$false, HelpMessage="Execution service type (exec, autoit)")]
+    [ValidateSet("exec", "autoit", "")]
+    [string]$ExecutionMode = "autoit",
     
     [Parameter(Mandatory=$false, HelpMessage="Base URL of the DetonatorAgent API")]
     [string]$BaseUrl = "http://localhost:8080"

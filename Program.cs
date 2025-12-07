@@ -3,6 +3,15 @@ using DetonatorAgent.EdrPlugins;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Configure console logging to use simple format
+builder.Logging.ClearProviders();
+builder.Logging.AddSimpleConsole(options =>
+{
+    options.SingleLine = true;
+    options.IncludeScopes = false;
+    options.TimestampFormat = "yyyy-MM-dd HH:mm:ss ";
+});
+
 // Configure port from command line argument or use default from appsettings.json (8080)
 var portArg = args.FirstOrDefault(arg => arg.StartsWith("--port="))?.Split('=')[1];
 if (!string.IsNullOrEmpty(portArg))
@@ -18,6 +27,9 @@ builder.Services.AddSwaggerGen();
 // Register lock service as singleton to maintain state across requests
 builder.Services.AddSingleton<ILockService, LockService>();
 
+// Register execution tracking service as singleton to maintain state across requests
+builder.Services.AddSingleton<ExecutionTrackingService>();
+
 // Register agent log service as singleton to maintain logs across requests
 builder.Services.AddSingleton<AgentLogService>();
 builder.Services.AddSingleton<IAgentLogService>(provider => provider.GetRequiredService<AgentLogService>());
@@ -32,9 +44,6 @@ else {
     // Register Linux execution service implementation
     builder.Services.AddSingleton<IExecutionService, LinuxExecutionService>();
 }
-
-// Register the execution service provider (must be registered after the individual services)
-builder.Services.AddSingleton<IExecutionServiceProvider, ExecutionServiceProvider>();
 
 // Register EDR service based on command line argument
 var edrService = args.FirstOrDefault(arg => arg.StartsWith("--edr="))?.Split('=')[1]?.ToLower() ?? "windowsdefender";

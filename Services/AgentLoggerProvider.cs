@@ -35,7 +35,7 @@ public class AgentLogger : ILogger {
             return;
 
         var message = formatter(state, exception);
-        var logEntry = $"[{logLevel}] {_categoryName}: {message}";
+        var logEntry = $"{logLevel.ToString().ToLower()}: {message}";
 
         if (exception != null) {
             logEntry += $" | Exception: {exception.Message}";

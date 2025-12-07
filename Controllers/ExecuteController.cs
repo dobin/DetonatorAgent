@@ -1,18 +1,30 @@
 using Microsoft.AspNetCore.Mvc;
 using DetonatorAgent.Services;
 using DetonatorAgent.Models;
+using System.Runtime.Versioning;
 
 namespace DetonatorAgent.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[SupportedOSPlatform("windows")]
 public class ExecuteController : ControllerBase {
-    private readonly IExecutionServiceProvider _executionServiceProvider;
     private readonly ILogger<ExecuteController> _logger;
+    private readonly ILogger<WindowsExecutionServiceExec> _execLogger;
+    private readonly ILogger<WindowsExecutionServiceAutoItExplorer> _autoitLogger;
+    private readonly IEdrService _edrService;
+    private readonly ExecutionTrackingService _executionTracking;
 
-    public ExecuteController(IExecutionServiceProvider executionServiceProvider, ILogger<ExecuteController> logger) {
-        _executionServiceProvider = executionServiceProvider;
+    public ExecuteController(ILogger<ExecuteController> logger, 
+        ILogger<WindowsExecutionServiceExec> execLogger,
+        ILogger<WindowsExecutionServiceAutoItExplorer> autoitLogger,
+        IEdrService edrService,
+        ExecutionTrackingService executionTracking) {
         _logger = logger;
+        _execLogger = execLogger;
+        _autoitLogger = autoitLogger;
+        _edrService = edrService;
+        _executionTracking = executionTracking;
     }
 
     [HttpPost("exec")]
@@ -20,21 +32,23 @@ public class ExecuteController : ControllerBase {
         [FromForm] string? drop_path = null, [FromForm] string? executable_args = null, [FromForm] string? executable_name = null,
         [FromForm] string? execution_mode = null, [FromForm] int? xor_key = null) {
         try {
-            // Get the execution service based on execution_mode parameter
-            var executionService = _executionServiceProvider.GetExecutionService(execution_mode);
-            if (executionService == null) {
-                var availableTypes = string.Join(", ", _executionServiceProvider.GetAvailableExecutionTypes());
-                _logger.LogWarning("Invalid execution type: {ExecutionType}. Available: {AvailableTypes}", 
-                    execution_mode, availableTypes);
-                
+            // Create the execution service based on execution_mode parameter
+            // This will track all execution & artefacts
+            IExecutionService executionService;
+            if (execution_mode == "exec") {
+                executionService = new WindowsExecutionServiceExec(_execLogger, _edrService);
+            } else if (execution_mode == "autoit") {
+                executionService = new WindowsExecutionServiceAutoItExplorer(_autoitLogger, _edrService);
+            } else {
+                _logger.LogWarning("Invalid execution type: {ExecutionType}. Available: exec, autoit", execution_mode);
                 return BadRequest(new ExecuteFileResponse {
                     Status = "error",
-                    Message = $"Invalid execution type '{execution_mode}'. Available types: {availableTypes}"
+                    Message = $"Invalid execution type '{execution_mode}'. Available types: exec, autoit"
                 });
             }
-
-            _logger.LogInformation("Using execution type: {ExecutionType}", 
-                execution_mode ?? "default");
+            
+            _executionTracking.SetLastExecutionService(executionService);
+            _logger.LogInformation("Using execution type: {ExecutionType}", execution_mode);
 
             // Validate xor_key parameter
             byte? xorKeyByte = null;
@@ -68,14 +82,14 @@ public class ExecuteController : ControllerBase {
             }
             var filePath = Path.Combine(targetPath, file.FileName);
 
-            // Read file content
+            // Get file content
             byte[] fileContent;
             using (var memoryStream = new MemoryStream()) {
                 await file.CopyToAsync(memoryStream);
                 fileContent = memoryStream.ToArray();
             }
 
-            // Write the malware (always write first, whether ZIP or executable)
+            // Write the file
             _logger.LogInformation("Writing file: {FilePath}", filePath);
             if (!await executionService.WriteMalwareAsync(filePath, fileContent, xorKeyByte)) {
                 _logger.LogError("Failed to write file to {FilePath}", filePath);
@@ -85,19 +99,22 @@ public class ExecuteController : ControllerBase {
                 });
             }
 
-            // Prepare file for execution (handles ZIP, RAR, or ISO extraction/mounting)
-            var (prepareSuccess, actualFilePath, prepareError) = await executionService.PrepareFileForExecutionAsync(filePath, executable_name);
-            if (!prepareSuccess) {
-                return BadRequest(new ExecuteFileResponse {
-                    Status = "error",
-                    Message = prepareError ?? "Failed to prepare file for execution"
-                });
+            // Start EDR collection after writing malware
+            try {
+                var edrStartResult = await _edrService.StartCollectionAsync();
+                if (edrStartResult) {
+                    _logger.LogInformation("Started EDR collection after writing malware");
+                }
+                else {
+                    _logger.LogWarning("Failed to start EDR collection after writing malware");
+                }
+            }
+            catch (Exception edrEx) {
+                _logger.LogError(edrEx, "Error starting EDR collection after writing malware");
             }
 
-            // Start the malware (use actualFilePath which might be extracted file or original file)
-            _logger.LogInformation("Executing file: {FilePath}", actualFilePath);
-            var (success, pid, errorMessage) = await executionService.StartProcessAsync(actualFilePath!, executable_args);
-
+            // Start the malware
+            var (success, pid, errorMessage) = await executionService.StartProcessAsync(executable_args);
             if (!success) {
                 if (errorMessage == "virus") {
                     _logger.LogInformation("Malware execution blocked by antivirus");
@@ -133,7 +150,7 @@ public class ExecuteController : ControllerBase {
             _logger.LogInformation("Kill request received");
 
             // Get the last used execution service
-            var executionService = _executionServiceProvider.GetLastUsedExecutionService();
+            var executionService = _executionTracking.GetLastExecutionService();
             if (executionService == null) {
                 _logger.LogWarning("No execution service found - no execution has been run yet");
                 return BadRequest(new KillResponse {

@@ -26,18 +26,33 @@ Note: This has been largely Vibe-Coded.
 ## Feature: File Execution
 
 The `/api/execute/exec` API will execute the given file. So the EDR (or AV) can do its thing.
+
+
+### Execution Mode: Direct
+
+This will write the given file into the selected directory (`drop_path`). 
+
+If it's a .zip, the content of it will be extracted. If it contains more than one file,
+the alphabetically first one will used as executable.
+
+Execution is performed with `Process.start()` with `UseShellExecute=true`, which means
+that the file has to have a valid Windows execution handler. For .exe files, it is possible
+to give arguments. 
+
+The exception is for `.dll`, which is executed with `rundll32.exe`. The file argument
+is then used as DLL export which will be called:
+```
+rundll32.exe <filepath>,<argument>
+```
+
+
+### Execution Mode: AutoIt
+
 It is intended to simulate a user "clicking" the malware: It will use the Windows integrated
-default app association to start the file (be it .exe, .lnk or others). 
+default app association to start the file (be it .exe, .lnk, or others). 
 
-Supported file extension: 
-* `.exe`: Direct execution
-* `.zip`: Extract and execute
-* `.iso`: Mount and execute
-
-There are different execution types: 
-* `Exec`: Uses Windows `Process.Start()` with `UseShellExecute = true`
-* **`AutoIt`**: Most realistic! Opens a `explorer.exe` window with AutoIt and "click" the file(s)
-
+The containers `.zip` and `.iso` will be clicked in explorer to be opened. 
+The alphabetically first file will be double-clicked.
 
 ![AutoItExplorer Demo](Doc/detonatoragent-autoitexplorer-zip.gif)
 
@@ -84,12 +99,12 @@ curl.exe -X POST http://localhost:8080/api/execute/exec -F "file=@c:\tools\proce
 
 Optional arguments:
 * `drop_path`: Where the file will be stored (default is `C:\Users\Public\Downloads`)
-* `excecution_mode`: One of the execution modes (`exec`, `autoit`, `autoitexplorer`)
+* `excecution_mode`: One of the execution modes (`exec`, `autoit`)
 * `executable_args`: Parameter to give the exe (e.g. `--help`) (only for `exec` mode)
 
 
 ```bash
-curl.exe -X POST http://localhost:8080/api/execute/exec -F "file=@c:\tools\procexp64.zip" -F "drop_path=C:\temp\" -F "execution_mode=autoitexplorer"
+curl.exe -X POST http://localhost:8080/api/execute/exec -F "file=@c:\tools\procexp64.zip" -F "drop_path=C:\temp\" -F "execution_mode=autoit"
 ```
 
 ```bash

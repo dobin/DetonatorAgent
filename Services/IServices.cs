@@ -8,15 +8,14 @@ public interface ILockService {
 
 public interface IExecutionService {
     /// <summary>
-    /// Gets the execution type name for this service (e.g., "exec", "autoit", "autoitexplorer")
+    /// Gets the execution type name for this service (e.g., "exec", "autoit")
     /// </summary>
     string ExecutionTypeName { get; }
 
     Task<bool> WriteMalwareAsync(string filePath, byte[] content, byte? xorKey = null);
-    Task<(bool Success, int Pid, string? ErrorMessage)> StartProcessAsync(string filePath, string? arguments = null);
+    Task<(bool Success, int Pid, string? ErrorMessage)> StartProcessAsync(string? arguments = null);
     Task<(bool Success, string? ErrorMessage)> KillLastExecutionAsync();
     Task<(int Pid, string Stdout, string Stderr)> GetExecutionLogsAsync();
-    Task<(bool Success, string? FilePath, string? ErrorMessage)> PrepareFileForExecutionAsync(string filePath, string? executable_name = null);
 }
 
 public interface IEdrService {

@@ -11,6 +11,7 @@ public class LinuxExecutionService : IExecutionService {
     private string _lastStderr = string.Empty;
     private Process? _lastProcess = null;
     private readonly object _processLock = new object();
+    private string _executableFilePath = "";
 
     public string ExecutionTypeName => "linux";
 
@@ -32,10 +33,10 @@ public class LinuxExecutionService : IExecutionService {
             await FileWriter.WriteAsync(filePath, content, xorKey);
 
             // Set executable permissions on Linux
-            var chmod = Process.Start("chmod", $"+x \"{filePath}\"");
+            var chmod = Process.Start("chmod", $"+x \"{_executableFilePath}\"");
             chmod?.WaitForExit();
 
-            _logger.LogInformation("Successfully wrote malware to: {FilePath}", filePath);
+            _logger.LogInformation("Successfully wrote malware to: {FilePath}", _executableFilePath);
 
             // Start EDR collection after writing malware
             try {
@@ -60,12 +61,12 @@ public class LinuxExecutionService : IExecutionService {
         }
     }
 
-    public async Task<(bool Success, int Pid, string? ErrorMessage)> StartProcessAsync(string filePath, string? arguments = null) {
+    public async Task<(bool Success, int Pid, string? ErrorMessage)> StartProcessAsync(string? arguments = null) {
         try {
-            _logger.LogInformation("Executing malware: {FilePath} with args: {Arguments}", filePath, arguments ?? "");
+            _logger.LogInformation("Executing malware: {FilePath} with args: {Arguments}", _executableFilePath, arguments ?? "");
 
             var startInfo = new ProcessStartInfo {
-                FileName = filePath,
+                FileName = _executableFilePath,
                 Arguments = arguments ?? "",
                 UseShellExecute = false,
                 CreateNoWindow = true,
@@ -75,7 +76,7 @@ public class LinuxExecutionService : IExecutionService {
 
             var process = Process.Start(startInfo);
             if (process == null) {
-                _logger.LogError("Failed to start process: {FilePath}", filePath);
+                _logger.LogError("Failed to start process: {FilePath}", _executableFilePath);
                 return (false, 0, "Failed to start process");
             }
 
@@ -133,7 +134,7 @@ public class LinuxExecutionService : IExecutionService {
             return (true, pid, null);
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "Error executing malware: {FilePath}", filePath);
+            _logger.LogError(ex, "Error executing malware: {FilePath}", _executableFilePath);
             return (false, 0, ex.Message);
         }
     }

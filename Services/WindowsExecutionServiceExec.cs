@@ -8,15 +8,15 @@ namespace DetonatorAgent.Services;
 public class WindowsExecutionServiceExec : IExecutionService {
     private readonly ILogger<WindowsExecutionServiceExec> _logger;
     private readonly IEdrService _edrService;
+    private string _executableFilePath = "";
+    public string ExecutionTypeName => "exec";
+
+    // Tracking
     private int _lastProcessId = 0;
     private string _lastStdout = string.Empty;
     private string _lastStderr = string.Empty;
     private Process? _lastProcess = null;
-    private string? _lastExtractionPath = null;
-    private string? _lastMountedIsoPath = null;
-    private readonly object _processLock = new object();
-
-    public string ExecutionTypeName => "exec";
+    private List<string> _cleanupFiles = new List<string>();
 
     public WindowsExecutionServiceExec(ILogger<WindowsExecutionServiceExec> logger, IEdrService edrService) {
         _logger = logger;
@@ -24,6 +24,10 @@ public class WindowsExecutionServiceExec : IExecutionService {
     }
 
     public async Task<bool> WriteMalwareAsync(string filePath, byte[] content, byte? xorKey = null) {
+        // Write the give file to the filesystem
+        // - with optional XOR decoding
+        // - to the given filePath
+        // - unzip it there if it's a .zip file
         try {
             _logger.LogInformation("Writing malware to: {FilePath}, xorkey: {XorKey}", filePath, xorKey.HasValue ? xorKey.Value.ToString() : "none");
 
@@ -33,23 +37,58 @@ public class WindowsExecutionServiceExec : IExecutionService {
                 Directory.CreateDirectory(directory);
             }
 
-            // Write file with optional XOR decoding (processes in 32-byte chunks)
+            // Write file with optional XOR decoding
             await FileWriter.WriteAsync(filePath, content, xorKey);
             _logger.LogInformation("Successfully wrote malware to: {FilePath}", filePath);
+            _executableFilePath = filePath;
 
-            // Start EDR collection after writing malware (Windows only)
-            try {
-                var edrStartResult = await _edrService.StartCollectionAsync();
-                if (edrStartResult) {
-                    _logger.LogInformation("Started EDR collection after writing malware");
+            // Add the dropped file to cleanup list
+            _cleanupFiles.Clear();
+            _cleanupFiles.Add(filePath);
+
+            // If it's a .zip file, extract it into the same directory
+            var fileExtension = Path.GetExtension(filePath).ToLowerInvariant();
+            if (fileExtension == ".zip") {
+                try {
+                    var extractPath = Path.GetDirectoryName(filePath);
+                    if (!string.IsNullOrEmpty(extractPath)) {
+                        _logger.LogInformation("Extracting zip file to: {ExtractPath}", extractPath);
+                        
+                        using (var archive = ZipFile.OpenRead(filePath)) {
+                            // Get alphabetically first filename from zip
+                            var firstEntry = archive.Entries
+                                .Where(e => !string.IsNullOrEmpty(e.Name)) // Skip directory entries
+                                .OrderBy(e => e.FullName)
+                                .FirstOrDefault();
+                            
+                            if (firstEntry != null) {
+                                _executableFilePath = Path.Combine(extractPath, firstEntry.FullName);
+                                _logger.LogInformation("First file in zip (alphabetically): {FilePath}", _executableFilePath);
+                            }
+                            
+                            // Extract all files
+                            archive.ExtractToDirectory(extractPath, overwriteFiles: true);
+                            
+                            // Add all extracted files to cleanup list
+                            _cleanupFiles.Clear();
+                            foreach (var entry in archive.Entries) {
+                                if (!string.IsNullOrEmpty(entry.Name)) {
+                                    var extractedFilePath = Path.Combine(extractPath, entry.FullName);
+                                    _cleanupFiles.Add(extractedFilePath);
+                                }
+                            }
+                        }
+                        _logger.LogInformation("Successfully extracted zip file");
+
+                        // Now delete the original zip file
+                        File.Delete(filePath);
+                        _logger.LogInformation("Deleted original zip file: {FilePath}", filePath);
+                    }
                 }
-                else {
-                    _logger.LogWarning("Failed to start EDR collection after writing malware");
+                catch (Exception zipEx) {
+                    _logger.LogError(zipEx, "Failed to extract zip file: {FilePath}", filePath);
+                    // Don't fail the malware writing operation due to zip extraction failure
                 }
-            }
-            catch (Exception edrEx) {
-                _logger.LogError(edrEx, "Error starting EDR collection after writing malware");
-                // Don't fail the malware writing operation due to EDR collection failure
             }
 
             return true;
@@ -60,12 +99,12 @@ public class WindowsExecutionServiceExec : IExecutionService {
         }
     }
 
-    public async Task<(bool Success, int Pid, string? ErrorMessage)> StartProcessAsync(string filePath, string? arguments = null) {
+    public async Task<(bool Success, int Pid, string? ErrorMessage)> StartProcessAsync(string? arguments = null) {
         try {
-            _logger.LogInformation("Executing malware: {FilePath} with args: {Arguments}", filePath, arguments ?? "");
+            _logger.LogInformation("Executing malware: {FilePath} with args: {Arguments}", _executableFilePath, arguments ?? "");
 
             // Check if the file is a DLL
-            var fileExtension = Path.GetExtension(filePath).ToLowerInvariant();
+            var fileExtension = Path.GetExtension(_executableFilePath).ToLowerInvariant();
             bool isDll = fileExtension == ".dll";
 
             ProcessStartInfo startInfo;
@@ -80,7 +119,7 @@ public class WindowsExecutionServiceExec : IExecutionService {
                     _logger.LogError("No entry point specified for DLL execution (as argument)");
                     return (false, 0, "No entry point specified for DLL execution (as argument)");
                 }
-                string rundll32Args = $"\"{filePath}\",{arguments}";
+                string rundll32Args = $"\"{_executableFilePath}\",{arguments}";
                 
                 startInfo = new ProcessStartInfo {
                     FileName = "rundll32.exe",
@@ -91,7 +130,7 @@ public class WindowsExecutionServiceExec : IExecutionService {
             }
             else {
                 startInfo = new ProcessStartInfo {
-                    FileName = filePath,
+                    FileName = _executableFilePath,
                     Arguments = arguments ?? "",
                     UseShellExecute = true,
                     CreateNoWindow = true
@@ -100,18 +139,18 @@ public class WindowsExecutionServiceExec : IExecutionService {
 
             var process = Process.Start(startInfo);
             if (process == null) {
-                _logger.LogError("Failed to start process: {FilePath}", filePath);
+                _logger.LogError("Failed to start process: {FilePath}", _executableFilePath);
                 return (false, 0, "Failed to start process");
             }
 
             // Try to get the PID - may not be available with UseShellExecute or DLLs
-            int pid = 0;
+            int pid = -1;
             try {
                 if (isDll) {
                     // For DLLs executed via rundll32, we don't have a meaningful PID
                     // The PID would be of rundll32.exe itself, not the DLL code
                     _logger.LogInformation("DLL execution: PID not available (rundll32.exe is the host process)");
-                    pid = 0;
+                    pid = -1;
                 }
                 else {
                     pid = process.Id;
@@ -122,16 +161,14 @@ public class WindowsExecutionServiceExec : IExecutionService {
                 pid = -1;
             }
 
-            lock (_processLock) {
-                // Clean up previous process if it exists
-                _lastProcess?.Dispose();
+            // Clean up previous process if it exists
+            _lastProcess?.Dispose();
 
-                _lastProcessId = pid;
-                _lastProcess = process;
-                _lastStdout = string.Empty;
-                _lastStderr = string.Empty;
-                // Note: _lastExtractionPath and _lastMountedIsoPath are set in PrepareFileForExecutionAsync
-            }
+            _lastProcessId = pid;
+            _lastProcess = process;
+            _lastStdout = string.Empty;
+            _lastStderr = string.Empty;
+            // Note: _lastExtractionPath and _lastMountedIsoPath are set in PrepareFileForExecutionAsync
 
             _logger.LogInformation("Process started successfully with PID: {Pid}", pid);
 
@@ -155,16 +192,16 @@ public class WindowsExecutionServiceExec : IExecutionService {
         }
         catch (Win32Exception ex) when (ex.NativeErrorCode == 225) // ERROR_OPERATION_ABORTED - virus detected
         {
-            _logger.LogWarning("Malware execution blocked by antivirus: {FilePath} - Error code: {ErrorCode}", filePath, ex.NativeErrorCode);
+            _logger.LogWarning("Malware execution blocked by antivirus: {FilePath} - Error code: {ErrorCode}", _executableFilePath, ex.NativeErrorCode);
             return (false, 0, "virus");
         }
         catch (Win32Exception ex) when (ex.NativeErrorCode == 1234) // ERROR_VIRUS_INFECTED equivalent
         {
-            _logger.LogWarning("Malware execution blocked by antivirus: {FilePath} - Error code: {ErrorCode}", filePath, ex.NativeErrorCode);
+            _logger.LogWarning("Malware execution blocked by antivirus: {FilePath} - Error code: {ErrorCode}", _executableFilePath, ex.NativeErrorCode);
             return (false, 0, "virus");
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "Error executing malware: {FilePath}", filePath);
+            _logger.LogError(ex, "Error executing malware: {FilePath}", _executableFilePath);
             return (false, 0, ex.Message);
         }
     }
@@ -173,20 +210,14 @@ public class WindowsExecutionServiceExec : IExecutionService {
         try {
             Process? processToKill = null;
             int pidToKill = 0;
-            string? extractionPath = null;
-            string? mountedIsoPath = null;
 
-            lock (_processLock) {
-                if (_lastProcessId == 0) {
-                    _logger.LogWarning("No process to kill - no last execution found");
-                    return (false, "No process to kill - no last execution found");
-                }
-
-                pidToKill = _lastProcessId;
-                processToKill = _lastProcess;
-                extractionPath = _lastExtractionPath;
-                mountedIsoPath = _lastMountedIsoPath;
+            if (_lastProcessId == 0 || _lastProcessId == -1) {
+                _logger.LogWarning("No process to kill - no last execution found");
+                return (true, "No process to kill - no last execution found");
             }
+
+            pidToKill = _lastProcessId;
+            processToKill = _lastProcess;
 
             _logger.LogInformation("Attempting to kill process with PID: {Pid}", pidToKill);
 
@@ -205,101 +236,51 @@ public class WindowsExecutionServiceExec : IExecutionService {
                     _logger.LogInformation("Successfully killed process with PID: {Pid} using process ID", pidToKill);
                 }
 
-                // Clean up extracted directory if exists
-                if (!string.IsNullOrEmpty(extractionPath) && Directory.Exists(extractionPath)) {
-                    try {
-                        _logger.LogInformation("Deleting extracted directory: {ExtractionPath}", extractionPath);
-                        Directory.Delete(extractionPath, recursive: true);
-                        _logger.LogInformation("Successfully deleted extracted directory");
-                    }
-                    catch (Exception ex) {
-                        _logger.LogError(ex, "Failed to delete extracted directory: {ExtractionPath}", extractionPath);
-                    }
-                }
+                _lastProcessId = -1;
+                _lastProcess?.Dispose();
+                _lastProcess = null;
 
-                // Unmount ISO if exists
-                if (!string.IsNullOrEmpty(mountedIsoPath) && File.Exists(mountedIsoPath)) {
-                    try {
-                        _logger.LogInformation("Unmounting ISO file: {IsoPath}", mountedIsoPath);
-
-                        // Use PowerShell to dismount the ISO
-                        var dismountProcess = new Process {
-                            StartInfo = new ProcessStartInfo {
-                                FileName = "powershell.exe",
-                                Arguments = $"-Command \"Dismount-DiskImage -ImagePath '{mountedIsoPath}'\"",
-                                UseShellExecute = false,
-                                CreateNoWindow = true,
-                                RedirectStandardOutput = true,
-                                RedirectStandardError = true
-                            }
-                        };
-
-                        dismountProcess.Start();
-                        await dismountProcess.WaitForExitAsync();
-
-                        if (dismountProcess.ExitCode == 0) {
-                            _logger.LogInformation("Successfully unmounted ISO file");
-                        }
-                        else {
-                            var errorOutput = await dismountProcess.StandardError.ReadToEndAsync();
-                            _logger.LogWarning("Failed to unmount ISO file. Exit code: {ExitCode}, Error: {Error}",
-                                dismountProcess.ExitCode, errorOutput);
-                        }
-                    }
-                    catch (Exception ex) {
-                        _logger.LogError(ex, "Failed to unmount ISO file: {IsoPath}", mountedIsoPath);
-                    }
-                }
-
-                lock (_processLock) {
-                    //_lastProcessId = 0; // Reset after successful kill
-                    _lastProcess?.Dispose();
-                    _lastProcess = null;
-                    _lastExtractionPath = null;
-                    _lastMountedIsoPath = null;
-                }
-
-                return (true, "Process killed successfully");
             }
             catch (ArgumentException) {
                 _logger.LogWarning("Process with PID {Pid} not found - may have already exited", pidToKill);
 
-                lock (_processLock) {
-                    //_lastProcessId = 0; // Reset since process doesn't exist
-                    _lastProcess?.Dispose();
-                    _lastProcess = null;
-                    _lastExtractionPath = null;
-                    _lastMountedIsoPath = null;
-                }
-
-                return (true, "Process not found"); // Consider this a success since the process is gone
+                //_lastProcessId = 0; // Reset since process doesn't exist
+                _lastProcess?.Dispose();
+                _lastProcess = null;
             }
             catch (InvalidOperationException) {
                 _logger.LogWarning("Process with PID {Pid} has already exited", pidToKill);
 
-                lock (_processLock) {
-                    //_lastProcessId = 0; // Reset since process has exited
-                    _lastProcess?.Dispose();
-                    _lastProcess = null;
-                    _lastExtractionPath = null;
-                    _lastMountedIsoPath = null;
-                }
-
-                return (true, "Process already exited"); // Consider this a success since the process is gone
+                //_lastProcessId = 0; // Reset since process has exited
+                _lastProcess?.Dispose();
+                _lastProcess = null;
             }
         }
         catch (Exception ex) {
             _logger.LogError(ex, "Error killing process with PID: {Pid}", _lastProcessId);
-            return (false, ex.Message);
         }
+
+        // Clean up tracked files
+        foreach (var fileToDelete in _cleanupFiles) {
+            try {
+                if (File.Exists(fileToDelete)) {
+                    File.Delete(fileToDelete);
+                    _logger.LogInformation("Deleted cleanup file: {FilePath}", fileToDelete);
+                }
+            }
+            catch (Exception ex) {
+                _logger.LogError(ex, "Failed to delete cleanup file: {FilePath}", fileToDelete);
+            }
+        }
+        _cleanupFiles.Clear();
+
+        return (true, "Cleanup done");
     }
 
     public async Task<(int Pid, string Stdout, string Stderr)> GetExecutionLogsAsync() {
         await Task.CompletedTask; // For consistency with async pattern
 
-        lock (_processLock) {
-            return (_lastProcessId, _lastStdout, _lastStderr);
-        }
+        return (_lastProcessId, _lastStdout, _lastStderr);
     }
 
     private string? FindExecutableFile(string searchPath, string? executable_name) {
@@ -335,104 +316,5 @@ public class WindowsExecutionServiceExec : IExecutionService {
                 return null;
             }
         }
-    }
-
-    private async Task<(bool Success, string? FilePath, string? ErrorMessage)> HandleIsoFileAsync(string filePath, string? executable_name) {
-        _logger.LogInformation("Detected ISO file: {FileName}, mounting it", Path.GetFileName(filePath));
-
-        // Mount ISO by starting it directly (Windows will mount it automatically)
-        var mountProcess = new Process {
-            StartInfo = new ProcessStartInfo {
-                FileName = filePath,
-                UseShellExecute = true,
-                CreateNoWindow = true
-            }
-        };
-
-        mountProcess.Start();
-        _logger.LogInformation("ISO mount command executed");
-
-        // Wait for Windows to mount the ISO
-        await Task.Delay(3000);
-
-        // Check if D: drive exists (common mount point)
-        if (!Directory.Exists(@"D:\")) {
-            _logger.LogError("D: drive not found after mounting ISO");
-            return (false, null, "Failed to mount ISO or D: drive not accessible");
-        }
-
-        _logger.LogInformation("ISO mounted to D: drive");
-
-        // Store the ISO path for later unmounting
-        lock (_processLock) {
-            _lastMountedIsoPath = filePath;
-        }
-
-        // Find the file to execute on D: drive
-        var fileToExecute = FindExecutableFile(@"D:\", executable_name);
-
-        if (fileToExecute == null) {
-            var errorMsg = !string.IsNullOrWhiteSpace(executable_name)
-                ? $"Specified file '{executable_name}' not found on mounted ISO"
-                : "No executable files (.exe, .bat, .com, .lnk) found on mounted ISO";
-            return (false, null, errorMsg);
-        }
-
-        return (true, fileToExecute, null);
-    }
-
-    private async Task<(bool Success, string? FilePath, string? ErrorMessage)> HandleZipFileAsync(string filePath, string? executable_name) {
-        _logger.LogInformation("Detected archive file: {FileName}, extracting to temp directory", Path.GetFileName(filePath));
-
-        var fileExtension = Path.GetExtension(filePath).ToLowerInvariant();
-
-        // Check for RAR files (not supported)
-        if (fileExtension == ".rar") {
-            _logger.LogError("RAR files are not yet supported");
-            return (false, null, "RAR files are not yet supported. Please use ZIP files instead.");
-        }
-
-        // Create extraction directory in user's temp folder
-        var tempPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Temp", Path.GetRandomFileName());
-        Directory.CreateDirectory(tempPath);
-        _logger.LogInformation("Created extraction directory: {TempPath}", tempPath);
-
-        // Extract ZIP file
-        using (var zip = ZipFile.OpenRead(filePath)) {
-            zip.ExtractToDirectory(tempPath, overwriteFiles: true);
-        }
-        _logger.LogInformation("Successfully extracted ZIP file to: {TempPath}", tempPath);
-
-        // Store the extraction path for later cleanup
-        lock (_processLock) {
-            _lastExtractionPath = tempPath;
-        }
-
-        // Find the file to execute
-        var fileToExecute = FindExecutableFile(tempPath, executable_name);
-
-        if (fileToExecute == null) {
-            var errorMsg = !string.IsNullOrWhiteSpace(executable_name)
-                ? $"Specified file '{executable_name}' not found in archive"
-                : "No executable files (.exe, .bat, .com, .lnk) found in archive";
-            return (false, null, errorMsg);
-        }
-
-        return (true, fileToExecute, null);
-    }
-
-    public async Task<(bool Success, string? FilePath, string? ErrorMessage)> PrepareFileForExecutionAsync(string filePath, string? executable_name = null) {
-        // Check if file is ZIP, RAR, or ISO and handle accordingly
-        var fileExtension = Path.GetExtension(filePath).ToLowerInvariant();
-
-        if (fileExtension == ".iso") {
-            return await HandleIsoFileAsync(filePath, executable_name);
-        }
-        else if (fileExtension == ".zip" || fileExtension == ".rar") {
-            return await HandleZipFileAsync(filePath, executable_name);
-        }
-
-        // For regular executables, just return the original path
-        return (true, filePath, null);
     }
 }

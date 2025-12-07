@@ -10,20 +10,23 @@ namespace DetonatorAgent.Services;
 public class WindowsExecutionServiceAutoItExplorer : IExecutionService {
     private readonly ILogger<WindowsExecutionServiceAutoItExplorer> _logger;
     private readonly IEdrService _edrService;
+    private readonly object _processLock = new object();
+    private string _executableFilePath = "";
+
+    // Tracking
     private int _lastProcessId = 0;
     private string? _lastExplorerWindowTitle = null;
     private string _lastStdout = string.Empty;
     private string _lastStderr = string.Empty;
     private string? _lastExtractionPath = null;
     private string? _lastMountedIsoPath = null;
-    private readonly object _processLock = new object();
     
     // AutoIt constants
     private const int SW_SHOW = 5;
     private const int SW_HIDE = 0;
     private const int SW_MAXIMIZE = 3;
 
-    public string ExecutionTypeName => "autoitexplorer";
+    public string ExecutionTypeName => "autoit";
 
     public WindowsExecutionServiceAutoItExplorer(ILogger<WindowsExecutionServiceAutoItExplorer> logger, IEdrService edrService) {
         _logger = logger;
@@ -172,21 +175,7 @@ public class WindowsExecutionServiceAutoItExplorer : IExecutionService {
 
             await FileWriter.WriteAsync(filePath, content, xorKey);
             _logger.LogInformation("Successfully wrote malware to: {FilePath}", filePath);
-
-            // Start EDR collection after writing malware
-            try {
-                var edrStartResult = await _edrService.StartCollectionAsync();
-                if (edrStartResult) {
-                    _logger.LogInformation("Started EDR collection after writing malware");
-                }
-                else {
-                    _logger.LogWarning("Failed to start EDR collection after writing malware");
-                }
-            }
-            catch (Exception edrEx) {
-                _logger.LogError(edrEx, "Error starting EDR collection after writing malware");
-            }
-
+            _executableFilePath = filePath;
             return true;
         }
         catch (Exception ex) {
@@ -195,21 +184,21 @@ public class WindowsExecutionServiceAutoItExplorer : IExecutionService {
         }
     }
 
-    public async Task<(bool Success, int Pid, string? ErrorMessage)> StartProcessAsync(string filePath, string? arguments = null) {
+    public async Task<(bool Success, int Pid, string? ErrorMessage)> StartProcessAsync(string? arguments = null) {
         try {
-            _logger.LogInformation("Executing malware using AutoIt Explorer: {FilePath} with args: {Arguments}", filePath, arguments ?? "");
+            _logger.LogInformation("Executing malware using AutoIt Explorer: {FilePath} with args: {Arguments}", _executableFilePath, arguments ?? "");
 
-            var fileExtension = Path.GetExtension(filePath).ToLowerInvariant();
+            var fileExtension = Path.GetExtension(_executableFilePath).ToLowerInvariant();
             int pid = 0;
 
             // Determine the type of file and use appropriate method
             if (fileExtension == ".zip" || fileExtension == ".iso") {
                 // Archive/image file - open in explorer, navigate into it, and execute first file
-                pid = await ExecuteArchiveViaExplorerAsync(filePath);
+                pid = await ExecuteArchiveViaExplorerAsync(_executableFilePath);
             }
             else if (fileExtension == ".exe" || fileExtension == ".bat" || fileExtension == ".com") {
                 // Direct executable - open in explorer and double-click
-                pid = await ExecuteFileViaExplorerAsync(filePath);
+                pid = await ExecuteFileViaExplorerAsync(_executableFilePath);
             }
             else {
                 _logger.LogError("Unsupported file type: {Extension}", fileExtension);
@@ -218,7 +207,7 @@ public class WindowsExecutionServiceAutoItExplorer : IExecutionService {
 
             if (pid == 0) {
                 int errorCode = AutoItX.ErrorCode();
-                _logger.LogError("Failed to start process using AutoIt Explorer: {FilePath}, Error code: {ErrorCode}", filePath, errorCode);
+                _logger.LogError("Failed to start process using AutoIt Explorer: {FilePath}, Error code: {ErrorCode}", _executableFilePath, errorCode);
                 
                 // Check if it's an antivirus/security block
                 if (errorCode == 1) {
@@ -257,7 +246,7 @@ public class WindowsExecutionServiceAutoItExplorer : IExecutionService {
             return (true, pid, null);
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "Error executing malware using AutoIt Explorer: {FilePath}", filePath);
+            _logger.LogError(ex, "Error executing malware using AutoIt Explorer: {FilePath}", _executableFilePath);
             
             // Check if error message suggests antivirus block
             if (ex.Message.Contains("virus", StringComparison.OrdinalIgnoreCase) ||

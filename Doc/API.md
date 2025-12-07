@@ -10,7 +10,7 @@
     - `file`: File to upload (required)
     - `drop_path`: Target directory (optional, defaults to C:\RedEdr\data\)
     - `executable_args`: Command line arguments (optional)
-    - `executable_name`: Specific file to execute from archive (optional, defaults to alphabetically first .exe/.bat/.com/.lnk)
+    - `executable_name`: Specific file to execute from archive (optional, defaults to alphabetically first)
     - `execution_mode`: Execution service to use (optional, uses default if not specified)
     - `xor_key`: XOR key for file decryption (optional, 0-255)
   - Response:
