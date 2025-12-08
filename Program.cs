@@ -38,7 +38,7 @@ builder.Services.AddSingleton<IAgentLogService>(provider => provider.GetRequired
 if (OperatingSystem.IsWindows()) {
     // Register all Windows execution service implementations
     builder.Services.AddSingleton<IExecutionService, WindowsExecutionServiceExec>();
-    builder.Services.AddSingleton<IExecutionService, WindowsExecutionServiceAutoItExplorer>();
+    builder.Services.AddSingleton<IExecutionService, WindowsExecutionServiceAutoit>();
 }
 else {
     // Register Linux execution service implementation

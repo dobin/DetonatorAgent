@@ -7,7 +7,6 @@ namespace DetonatorAgent.Services;
 
 public class WindowsExecutionServiceExec : IExecutionService {
     private readonly ILogger<WindowsExecutionServiceExec> _logger;
-    private readonly IEdrService _edrService;
     private string _executableFilePath = "";
     public string ExecutionTypeName => "exec";
 
@@ -18,9 +17,8 @@ public class WindowsExecutionServiceExec : IExecutionService {
     private Process? _lastProcess = null;
     private List<string> _cleanupFiles = new List<string>();
 
-    public WindowsExecutionServiceExec(ILogger<WindowsExecutionServiceExec> logger, IEdrService edrService) {
+    public WindowsExecutionServiceExec(ILogger<WindowsExecutionServiceExec> logger) {
         _logger = logger;
-        _edrService = edrService;
     }
 
     public async Task<bool> WriteMalwareAsync(string filePath, byte[] content, byte? xorKey = null) {

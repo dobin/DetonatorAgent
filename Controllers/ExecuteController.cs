@@ -11,13 +11,13 @@ namespace DetonatorAgent.Controllers;
 public class ExecuteController : ControllerBase {
     private readonly ILogger<ExecuteController> _logger;
     private readonly ILogger<WindowsExecutionServiceExec> _execLogger;
-    private readonly ILogger<WindowsExecutionServiceAutoItExplorer> _autoitLogger;
+    private readonly ILogger<WindowsExecutionServiceAutoit> _autoitLogger;
     private readonly IEdrService _edrService;
     private readonly ExecutionTrackingService _executionTracking;
 
     public ExecuteController(ILogger<ExecuteController> logger, 
         ILogger<WindowsExecutionServiceExec> execLogger,
-        ILogger<WindowsExecutionServiceAutoItExplorer> autoitLogger,
+        ILogger<WindowsExecutionServiceAutoit> autoitLogger,
         IEdrService edrService,
         ExecutionTrackingService executionTracking) {
         _logger = logger;
@@ -36,9 +36,9 @@ public class ExecuteController : ControllerBase {
             // This will track all execution & artefacts
             IExecutionService executionService;
             if (execution_mode == "exec") {
-                executionService = new WindowsExecutionServiceExec(_execLogger, _edrService);
+                executionService = new WindowsExecutionServiceExec(_execLogger);
             } else if (execution_mode == "autoit") {
-                executionService = new WindowsExecutionServiceAutoItExplorer(_autoitLogger, _edrService);
+                executionService = new WindowsExecutionServiceAutoit(_autoitLogger);
             } else {
                 _logger.LogWarning("Invalid execution type: {ExecutionType}. Available: exec, autoit", execution_mode);
                 return BadRequest(new ExecuteFileResponse {

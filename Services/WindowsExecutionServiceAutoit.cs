@@ -7,9 +7,8 @@ using AutoIt;
 namespace DetonatorAgent.Services;
 
 [SupportedOSPlatform("windows")]
-public class WindowsExecutionServiceAutoItExplorer : IExecutionService {
-    private readonly ILogger<WindowsExecutionServiceAutoItExplorer> _logger;
-    private readonly IEdrService _edrService;
+public class WindowsExecutionServiceAutoit : IExecutionService {
+    private readonly ILogger<WindowsExecutionServiceAutoit> _logger;
     private readonly object _processLock = new object();
     private string _executableFilePath = "";
 
@@ -28,9 +27,8 @@ public class WindowsExecutionServiceAutoItExplorer : IExecutionService {
 
     public string ExecutionTypeName => "autoit";
 
-    public WindowsExecutionServiceAutoItExplorer(ILogger<WindowsExecutionServiceAutoItExplorer> logger, IEdrService edrService) {
+    public WindowsExecutionServiceAutoit(ILogger<WindowsExecutionServiceAutoit> logger) {
         _logger = logger;
-        _edrService = edrService;
     }
 
     
@@ -140,21 +138,6 @@ public class WindowsExecutionServiceAutoItExplorer : IExecutionService {
                 return false;
             }
 
-            // Start EDR collection after writing malware (Windows only)
-            try {
-                var edrStartResult = await _edrService.StartCollectionAsync();
-                if (edrStartResult) {
-                    _logger.LogInformation("Started EDR collection after writing malware");
-                }
-                else {
-                    _logger.LogWarning("Failed to start EDR collection after writing malware");
-                }
-            }
-            catch (Exception edrEx) {
-                _logger.LogError(edrEx, "Error starting EDR collection after writing malware");
-                // Don't fail the malware writing operation due to EDR collection failure
-            }
-
             return true;
         }
         catch (Exception ex) {
@@ -196,13 +179,9 @@ public class WindowsExecutionServiceAutoItExplorer : IExecutionService {
                 // Archive/image file - open in explorer, navigate into it, and execute first file
                 pid = await ExecuteArchiveViaExplorerAsync(_executableFilePath);
             }
-            else if (fileExtension == ".exe" || fileExtension == ".bat" || fileExtension == ".com") {
+            else {
                 // Direct executable - open in explorer and double-click
                 pid = await ExecuteFileViaExplorerAsync(_executableFilePath);
-            }
-            else {
-                _logger.LogError("Unsupported file type: {Extension}", fileExtension);
-                return (false, 0, $"Unsupported file type: {fileExtension}");
             }
 
             if (pid == 0) {
