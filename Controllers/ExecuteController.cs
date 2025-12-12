@@ -29,8 +29,11 @@ public class ExecuteController : ControllerBase {
 
     [HttpPost("exec")]
     public async Task<ActionResult<ExecuteFileResponse>> ExecuteFile([FromForm] IFormFile file,
-        [FromForm] string? drop_path = null, [FromForm] string? executable_args = null, [FromForm] string? executable_name = null,
-        [FromForm] string? execution_mode = null, [FromForm] int? xor_key = null) {
+        [FromForm] string? drop_path = null, 
+        [FromForm] string? executable_args = null, 
+        [FromForm] string? execution_mode = null, 
+        [FromForm] int? xor_key = null) 
+    {
         try {
             // Create the execution service based on execution_mode parameter
             // This will track all execution & artefacts
@@ -40,11 +43,9 @@ public class ExecuteController : ControllerBase {
             } else if (execution_mode == "autoit") {
                 executionService = new WindowsExecutionServiceAutoit(_autoitLogger);
             } else {
-                _logger.LogWarning("Invalid execution type: {ExecutionType}. Available: exec, autoit", execution_mode);
-                return BadRequest(new ExecuteFileResponse {
-                    Status = "error",
-                    Message = $"Invalid execution type '{execution_mode}'. Available types: exec, autoit"
-                });
+                // Use "exec" as default execution mode
+                executionService = new WindowsExecutionServiceExec(_execLogger);
+                _logger.LogInformation("No execution_mode provided, defaulting to 'exec'");
             }
             
             _executionTracking.SetLastExecutionService(executionService);
@@ -99,18 +100,18 @@ public class ExecuteController : ControllerBase {
                 });
             }
 
-            // Start EDR collection after writing malware
+            // Start EDR collection
             try {
                 var edrStartResult = await _edrService.StartCollectionAsync();
                 if (edrStartResult) {
-                    _logger.LogInformation("Started EDR collection after writing malware");
+                    _logger.LogInformation("Started EDR collection");
                 }
                 else {
-                    _logger.LogWarning("Failed to start EDR collection after writing malware");
+                    _logger.LogWarning("Failed to start EDR collection");
                 }
             }
             catch (Exception edrEx) {
-                _logger.LogError(edrEx, "Error starting EDR collection after writing malware");
+                _logger.LogError(edrEx, "Error starting EDR collection");
             }
 
             // Start the malware
@@ -128,6 +129,8 @@ public class ExecuteController : ControllerBase {
                     Status = "error",
                     Message = $"Failed to execute malware: {errorMessage}"
                 });
+            } else {
+                _logger.LogInformation("Malware executed successfully with PID: {Pid}", pid);
             }
 
             return Ok(new ExecuteFileResponse {
