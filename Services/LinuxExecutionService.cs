@@ -39,19 +39,7 @@ public class LinuxExecutionService : IExecutionService {
             _logger.LogInformation("Successfully wrote malware to: {FilePath}", _executableFilePath);
 
             // Start EDR collection after writing malware
-            try {
-                var edrStartResult = await _edrService.StartCollectionAsync();
-                if (edrStartResult) {
-                    _logger.LogInformation("Started EDR collection after writing malware");
-                }
-                else {
-                    _logger.LogWarning("Failed to start EDR collection after writing malware");
-                }
-            }
-            catch (Exception edrEx) {
-                _logger.LogError(edrEx, "Error starting EDR collection after writing malware");
-                // Don't fail the malware writing operation due to EDR collection failure
-            }
+            _edrService.StartCollection();
 
             return true;
         }

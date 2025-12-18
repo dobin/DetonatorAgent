@@ -56,9 +56,6 @@ if (OperatingSystem.IsWindows()) {
         case "example":
             builder.Services.AddSingleton<IEdrService, ExampleEdrPlugin>();
             break;
-        case "elastic":
-            builder.Services.AddSingleton<IEdrService, ElasticEdrPlugin>();
-            break;
         default:
             builder.Services.AddSingleton<IEdrService, DefenderEdrPlugin>();
             break;
@@ -66,11 +63,8 @@ if (OperatingSystem.IsWindows()) {
 }
 else {
     switch (edrService) {
-        case "elastic":
-            builder.Services.AddSingleton<IEdrService, ElasticEdrPlugin>();
-            break;
         default:
-            builder.Services.AddSingleton<IEdrService, ElasticEdrPlugin>();
+            builder.Services.AddSingleton<IEdrService, ExampleEdrPlugin>();
             break;
     }
 }

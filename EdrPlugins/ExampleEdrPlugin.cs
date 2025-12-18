@@ -9,57 +9,24 @@ namespace DetonatorAgent.EdrPlugins;
 [SupportedOSPlatform("windows")]
 public class ExampleEdrPlugin : IEdrService {
     private readonly ILogger<ExampleEdrPlugin> _logger;
-    private string _collectedLogs = string.Empty;
-    private readonly object _lockObject = new object();
 
     public ExampleEdrPlugin(ILogger<ExampleEdrPlugin> logger) {
         _logger = logger;
     }
 
-    public async Task<bool> StartCollectionAsync() {
-        try {
-            lock (_lockObject) {
-                _collectedLogs = string.Empty;
-            }
-
-            await Task.CompletedTask;
-            return true;
-        }
-        catch (Exception ex) {
-            _logger.LogError(ex, "Failed to start Example EDR log collection");
-            return false;
-        }
+    public bool StartCollection() {
+        _logger.LogInformation("Started Example EDR log collection");
+        return true;
     }
 
-    public async Task<bool> StopCollectionAsync() {
-        try {
-            await Task.CompletedTask;
-
-            DateTime stopTime;
-            lock (_lockObject) {
-                stopTime = DateTime.UtcNow;
-            }
-
-            var logs = "";
-
-            lock (_lockObject) {
-                _collectedLogs = logs;
-            }
-
-            _logger.LogInformation("Collected {LogLength} characters of Example EDR events", logs.Length);
-            return true;
-        }
-        catch (Exception ex) {
-            _logger.LogError(ex, "Failed to stop Example EDR log collection");
-            return false;
-        }
+    public bool StopCollection() {
+        _logger.LogInformation("Stopped Example EDR log collection");
+        return true;
     }
 
-    public async Task<string> GetLogsAsync() {
-        await Task.CompletedTask;
-        lock (_lockObject) {
-            return _collectedLogs;
-        }
+    public string GetLogs() {
+        _logger.LogInformation("Retrieving Example EDR logs");
+        return "<ExampleLogs><Log>Example log entry 1</Log><Log>Example log entry 2</Log></ExampleLogs>";
     }
 
     public string GetEdrVersion() {

@@ -256,6 +256,9 @@ public class WindowsExecutionServiceExec : IExecutionService {
         }
 
         // Clean up tracked files
+        // Sleep briefly to ensure files are not in use
+        await Task.Delay(500);
+
         foreach (var fileToDelete in _cleanupFiles) {
             try {
                 if (File.Exists(fileToDelete)) {

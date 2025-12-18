@@ -101,18 +101,7 @@ public class ExecuteController : ControllerBase {
             }
 
             // Start EDR collection
-            try {
-                var edrStartResult = await _edrService.StartCollectionAsync();
-                if (edrStartResult) {
-                    _logger.LogInformation("Started EDR collection");
-                }
-                else {
-                    _logger.LogWarning("Failed to start EDR collection");
-                }
-            }
-            catch (Exception edrEx) {
-                _logger.LogError(edrEx, "Error starting EDR collection");
-            }
+            _edrService.StartCollection();
 
             // Start the malware
             var (success, pid, errorMessage) = await executionService.StartProcessAsync(executable_args);
@@ -151,6 +140,8 @@ public class ExecuteController : ControllerBase {
     public async Task<ActionResult<KillResponse>> KillLastExecution() {
         try {
             _logger.LogInformation("Kill request received");
+
+            _edrService.StopCollection();
 
             // Get the last used execution service
             var executionService = _executionTracking.GetLastExecutionService();

@@ -22,17 +22,17 @@ public interface IEdrService {
     /// <summary>
     /// Starts EDR log collection from this point in time
     /// </summary>
-    Task<bool> StartCollectionAsync();
+    bool StartCollection();
 
     /// <summary>
     /// Stops EDR log collection and processes collected events
     /// </summary>
-    Task<bool> StopCollectionAsync();
+    bool StopCollection();
 
     /// <summary>
     /// Gets the collected EDR logs since StartCollection was called
     /// </summary>
-    Task<string> GetLogsAsync();
+    string GetLogs();
 
     /// <summary>
     /// Gets the EDR vendor name and version

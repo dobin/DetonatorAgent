@@ -22,16 +22,10 @@ public class LogsController : ControllerBase {
     [HttpGet("edr")]
     public async Task<ActionResult<EdrLogsResponse>> GetEdrLogs() {
         try {
-            _logger.LogInformation("Retrieving EDR logs - stopping collection and getting events");
-
-            // Stop EDR collection first (as per the requirement)
-            var stopResult = await _edrService.StopCollectionAsync();
-            if (!stopResult) {
-                _logger.LogWarning("Failed to stop EDR collection, but continuing to get logs");
-            }
+            _logger.LogInformation("Retrieving EDR logs");
 
             // Get the collected logs
-            var logs = await _edrService.GetLogsAsync();
+            var logs = _edrService.GetLogs();
             var edrVersion = _edrService.GetEdrVersion();
             var pluginVersion = _edrService.GetPluginVersion();
 
