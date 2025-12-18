@@ -234,7 +234,6 @@ public class WindowsExecutionServiceExec : IExecutionService {
                     _logger.LogInformation("Successfully killed process with PID: {Pid} using process ID", pidToKill);
                 }
 
-                _lastProcessId = -1;
                 _lastProcess?.Dispose();
                 _lastProcess = null;
 
@@ -242,14 +241,12 @@ public class WindowsExecutionServiceExec : IExecutionService {
             catch (ArgumentException) {
                 _logger.LogWarning("Process with PID {Pid} not found - may have already exited", pidToKill);
 
-                //_lastProcessId = 0; // Reset since process doesn't exist
                 _lastProcess?.Dispose();
                 _lastProcess = null;
             }
             catch (InvalidOperationException) {
                 _logger.LogWarning("Process with PID {Pid} has already exited", pidToKill);
 
-                //_lastProcessId = 0; // Reset since process has exited
                 _lastProcess?.Dispose();
                 _lastProcess = null;
             }

@@ -8,13 +8,13 @@ namespace DetonatorAgent.Controllers;
 [Route("api/[controller]")]
 public class LogsController : ControllerBase {
     private readonly IEdrService _edrService;
-    private readonly IExecutionService _executionService;
+    private readonly ExecutionTrackingService _executionTracking;
     private readonly IAgentLogService _agentLogService;
     private readonly ILogger<LogsController> _logger;
 
-    public LogsController(IEdrService edrService, IExecutionService executionService, IAgentLogService agentLogService, ILogger<LogsController> logger) {
+    public LogsController(IEdrService edrService, ExecutionTrackingService executionTracking, IAgentLogService agentLogService, ILogger<LogsController> logger) {
         _edrService = edrService;
-        _executionService = executionService;
+        _executionTracking = executionTracking;
         _agentLogService = agentLogService;
         _logger = logger;
     }
@@ -53,7 +53,18 @@ public class LogsController : ControllerBase {
         try {
             _logger.LogInformation("Retrieving execution logs");
 
-            var (pid, stdout, stderr) = await _executionService.GetExecutionLogsAsync();
+            // Get the last used execution service
+            var executionService = _executionTracking.GetLastExecutionService();
+            if (executionService == null) {
+                _logger.LogWarning("No execution service found - no execution has been run yet");
+                return BadRequest(new ExecutionLogsResponse {
+                    Pid = 0,
+                    Stdout = "",
+                    Stderr = "No execution has been run yet"
+                });
+            }
+
+            var (pid, stdout, stderr) = await executionService.GetExecutionLogsAsync();
 
             var response = new ExecutionLogsResponse {
                 Pid = pid,
