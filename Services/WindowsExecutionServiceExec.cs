@@ -130,8 +130,10 @@ public class WindowsExecutionServiceExec : IExecutionService {
                 startInfo = new ProcessStartInfo {
                     FileName = _executableFilePath,
                     Arguments = arguments ?? "",
-                    UseShellExecute = true,
-                    CreateNoWindow = true
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true
                 };
             }
 
@@ -140,49 +142,56 @@ public class WindowsExecutionServiceExec : IExecutionService {
                 _logger.LogError("Failed to start process: {FilePath}", _executableFilePath);
                 return (false, 0, "Failed to start process");
             }
-
-            // Try to get the PID - may not be available with UseShellExecute or DLLs
+            // Get the PID
             int pid = -1;
-            try {
-                if (isDll) {
-                    // For DLLs executed via rundll32, we don't have a meaningful PID
-                    // The PID would be of rundll32.exe itself, not the DLL code
-                    _logger.LogInformation("DLL execution: PID not available (rundll32.exe is the host process)");
-                    pid = -1;
-                }
-                else {
-                    pid = process.Id;
-                }
-            }
-            catch {
-                // If we can't get the PID, use a placeholder
+            if (isDll) {
+                // For DLLs executed via rundll32, we don't have a meaningful PID
+                // The PID would be of rundll32.exe itself, not the DLL code
+                _logger.LogInformation("DLL execution: PID not available (rundll32.exe is the host process)");
                 pid = -1;
             }
-
-            // Clean up previous process if it exists
-            _lastProcess?.Dispose();
-
+            else {
+                pid = process.Id;
+            }
             _lastProcessId = pid;
             _lastProcess = process;
             _lastStdout = string.Empty;
             _lastStderr = string.Empty;
-            // Note: _lastExtractionPath and _lastMountedIsoPath are set in PrepareFileForExecutionAsync
-
             _logger.LogInformation("Process started successfully with PID: {Pid}", pid);
 
-            // Note: With UseShellExecute = true, we cannot redirect stdout/stderr
-            // The process may also spawn child processes that we don't track
-            _ = Task.Run(async () => {
-                try {
-                    // Just wait for the process without reading output
-                    await process.WaitForExitAsync();
+            // For non-DLL executions, capture stdout/stderr
+            if (!isDll) {
+                _ = Task.Run(async () => {
+                    try {
+                        // Read stdout and stderr asynchronously
+                        var stdoutTask = process.StandardOutput.ReadToEndAsync();
+                        var stderrTask = process.StandardError.ReadToEndAsync();
 
-                    _logger.LogInformation("Process {Pid} completed.", pid);
-                }
-                catch (Exception ex) {
-                    _logger.LogError(ex, "Error waiting for process {Pid}", pid);
-                }
-            });
+                        await process.WaitForExitAsync();
+
+                        _lastStdout = await stdoutTask;
+                        _lastStderr = await stderrTask;
+
+                        _logger.LogInformation("Process {Pid} completed. Stdout length: {StdoutLen}, Stderr length: {StderrLen}", 
+                            pid, _lastStdout.Length, _lastStderr.Length);
+                    }
+                    catch (Exception ex) {
+                        _logger.LogError(ex, "Error waiting for process {Pid}", pid);
+                    }
+                });
+            }
+            else {
+                // For DLL executions, just wait for completion
+                _ = Task.Run(async () => {
+                    try {
+                        await process.WaitForExitAsync();
+                        _logger.LogInformation("Process {Pid} completed.", pid);
+                    }
+                    catch (Exception ex) {
+                        _logger.LogError(ex, "Error waiting for process {Pid}", pid);
+                    }
+                });
+            }
 
             // Return immediately without waiting for the process to exit
             await Task.CompletedTask;
