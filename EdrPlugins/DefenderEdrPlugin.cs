@@ -20,7 +20,7 @@ public class DefenderEdrPlugin : IEdrService {
 
     public bool StartCollection() {
         _startTime = DateTime.UtcNow;
-        _logger.LogInformation("Started Windows Defender EDR log collection at {StartTime}", 
+        _logger.LogInformation("Defender Plugin: Started Windows Defender EDR log collection at {StartTime}", 
             _startTime.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"));
         return true;
     }
@@ -28,7 +28,7 @@ public class DefenderEdrPlugin : IEdrService {
 
     public bool StopCollection() {
         _stopTime = DateTime.UtcNow;
-        _logger.LogInformation("Stopping Windows Defender EDR log collection at {StopTime}",
+        _logger.LogInformation("Defender Plugin: Stopping Windows Defender EDR log collection at {StopTime}",
             _stopTime.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"));
         return true;
     }
@@ -55,9 +55,9 @@ public class DefenderEdrPlugin : IEdrService {
             // XPath query for filtering events by time range
             string query = $"*[System[TimeCreated[@SystemTime >= '{startTimeStr}' and @SystemTime <= '{endTimeStr}']]]";
 
-            _logger.LogInformation("Querying Windows Defender events from {StartTime} to {EndTime}",
+            _logger.LogInformation("Defender Plugin: Querying Windows Defender events from {StartTime} to {EndTime}",
                 startTimeStr, endTimeStr);
-            _logger.LogDebug("With query string: {QueryString}", query);
+            _logger.LogDebug("Defender Plugin: With query string: {QueryString}", query);
 
             var allEvents = new StringBuilder();
             allEvents.AppendLine("<Events>");
@@ -78,20 +78,18 @@ public class DefenderEdrPlugin : IEdrService {
                             eventCount++;
                         }
                         catch (Exception ex) {
-                            _logger.LogWarning(ex, "Failed to convert event {EventId} to XML", eventRecord.Id);
+                            _logger.LogWarning(ex, "Defender Plugin: Failed to convert event {EventId} to XML", eventRecord.Id);
                         }
                     }
                 }
 
-                _logger.LogInformation("Retrieved {EventCount} Windows Defender events", eventCount);
+                _logger.LogInformation("Defender Plugin: Retrieved {EventCount} Windows Defender events", eventCount);
             }
             catch (EventLogNotFoundException) {
-                _logger.LogWarning("Windows Defender Operational log not found. This might be expected on some systems.");
-                allEvents.AppendLine("<!-- Windows Defender Operational log not found -->");
+                _logger.LogWarning("Defender Plugin: Windows Defender Operational log not found. This might be expected on some systems.");
             }
             catch (UnauthorizedAccessException) {
-                _logger.LogWarning("Access denied to Windows Defender Operational log. Administrator privileges may be required.");
-                allEvents.AppendLine("<!-- Access denied to Windows Defender Operational log -->");
+                _logger.LogWarning("Defender Plugin: Access denied to Windows Defender Operational log. Administrator privileges may be required.");
             }
 
             allEvents.AppendLine("</Events>");
@@ -106,10 +104,5 @@ public class DefenderEdrPlugin : IEdrService {
     
     public string GetEdrVersion() {
         return "Windows Defender 1.0";
-    }
-
-
-    public string GetPluginVersion() {
-        return "1.0";
     }
 }

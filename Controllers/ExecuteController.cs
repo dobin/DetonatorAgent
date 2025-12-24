@@ -34,6 +34,8 @@ public class ExecuteController : ControllerBase {
         [FromForm] string? execution_mode = null, 
         [FromForm] int? xor_key = null) 
     {
+        _logger.LogInformation("Exec: Execute request received for file: {FileName}", file?.FileName ?? "null");
+
         try {
             // Create the execution service based on execution_mode parameter
             // This will track all execution & artefacts
@@ -45,29 +47,29 @@ public class ExecuteController : ControllerBase {
             } else {
                 // Use "exec" as default execution mode
                 executionService = new WindowsExecutionServiceExec(_execLogger);
-                _logger.LogInformation("No execution_mode provided, defaulting to 'exec'");
+                _logger.LogInformation("Exec: No execution_mode provided, defaulting to 'exec'");
             }
             
             _executionTracking.SetLastExecutionService(executionService);
-            _logger.LogInformation("Using execution type: {ExecutionType}", execution_mode);
+            _logger.LogInformation("Exec: Using execution type: {ExecutionType}", execution_mode);
 
             // Validate xor_key parameter
             byte? xorKeyByte = null;
             if (xor_key.HasValue) {
                 if (xor_key.Value < 0 || xor_key.Value > 255) {
-                    _logger.LogWarning("Invalid xor_key value: {XorKey}. Must be between 0 and 255", xor_key.Value);
+                    _logger.LogWarning("Exec: Invalid xor_key value: {XorKey}. Must be between 0 and 255", xor_key.Value);
                     return BadRequest(new ExecuteFileResponse {
                         Status = "error",
                         Message = $"Invalid xor_key value: {xor_key.Value}. Must be between 0 and 255"
                     });
                 }
                 xorKeyByte = (byte)xor_key.Value;
-                _logger.LogInformation("XOR key provided: {XorKey}", xorKeyByte);
+                //_logger.LogInformation("XOR key provided: {XorKey}", xorKeyByte);
             }
 
             // Validate file upload
             if (file == null || file.Length == 0 || string.IsNullOrWhiteSpace(file.FileName)) {
-                _logger.LogWarning("Data error: file content size: {Size}, filename: {FileName}",
+                _logger.LogWarning("Exec: Data error: file content size: {Size}, filename: {FileName}",
                     file?.Length ?? 0, file?.FileName ?? "");
 
                 return BadRequest(new ExecuteFileResponse {
@@ -91,9 +93,9 @@ public class ExecuteController : ControllerBase {
             }
 
             // Write the file
-            _logger.LogInformation("Writing file: {FilePath}", filePath);
+            _logger.LogInformation("Exec: Writing file: {FilePath}", filePath);
             if (!await executionService.WriteMalwareAsync(filePath, fileContent, xorKeyByte)) {
-                _logger.LogError("Failed to write file to {FilePath}", filePath);
+                _logger.LogError("Exec: Failed to write file to {FilePath}", filePath);
                 return StatusCode(500, new ExecuteFileResponse {
                     Status = "error",
                     Message = "Failed to write file"
@@ -107,7 +109,7 @@ public class ExecuteController : ControllerBase {
             var (success, pid, errorMessage) = await executionService.StartProcessAsync(executable_args);
             if (!success) {
                 if (errorMessage == "virus") {
-                    _logger.LogInformation("Malware execution blocked by antivirus");
+                    _logger.LogInformation("Exec: Malware execution blocked by antivirus");
                     return Ok(new ExecuteFileResponse {
                         Status = "virus",
                         Pid = pid
@@ -119,7 +121,7 @@ public class ExecuteController : ControllerBase {
                     Message = $"Failed to execute malware: {errorMessage}"
                 });
             } else {
-                _logger.LogInformation("Malware executed successfully with PID: {Pid}", pid);
+                _logger.LogInformation("Exec: Malware executed successfully with PID: {Pid}", pid);
             }
 
             return Ok(new ExecuteFileResponse {
@@ -139,14 +141,14 @@ public class ExecuteController : ControllerBase {
     [HttpPost("kill")]
     public async Task<ActionResult<KillResponse>> KillLastExecution() {
         try {
-            _logger.LogInformation("Kill request received");
+            _logger.LogInformation("Exec: Kill request received");
 
             _edrService.StopCollection();
 
             // Get the last used execution service
             var executionService = _executionTracking.GetLastExecutionService();
             if (executionService == null) {
-                _logger.LogWarning("No execution service found - no execution has been run yet");
+                _logger.LogWarning("Exec: No execution service found - no execution has been run yet");
                 return BadRequest(new KillResponse {
                     Status = "error",
                     Message = "No execution service found - no execution has been run yet"

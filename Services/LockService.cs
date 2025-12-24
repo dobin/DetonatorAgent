@@ -25,7 +25,7 @@ public class LockService : ILockService {
             }
 
             _inUse = true;
-            _logger.LogInformation("Lock acquired successfully");
+            _logger.LogInformation("Lock acquired");
             return true;
         }
     }
