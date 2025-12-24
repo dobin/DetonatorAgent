@@ -1,8 +1,10 @@
 using DetonatorAgent.Services;
 using System.Diagnostics.Eventing.Reader;
+using System.Management;
 using System.Runtime.Versioning;
 using System.Text;
 using System.Xml;
+
 
 namespace DetonatorAgent.EdrPlugins;
 
@@ -103,6 +105,17 @@ public class DefenderEdrPlugin : IEdrService {
 
     
     public string GetEdrVersion() {
-        return "Windows Defender 1.0";
+        var scope = new ManagementScope(@"\\.\root\Microsoft\Windows\Defender");
+        var query = new ObjectQuery("SELECT * FROM MSFT_MpComputerStatus");
+
+        using var searcher = new ManagementObjectSearcher(scope, query);
+        foreach (ManagementObject obj in searcher.Get())
+        {
+            return (
+                obj["AMProductVersion"]?.ToString() + " - " + obj["AntivirusSignatureVersion"]?.ToString()
+            );
+        }
+
+        return "Unknown";
     }
 }

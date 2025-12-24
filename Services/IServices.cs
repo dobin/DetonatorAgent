@@ -38,11 +38,6 @@ public interface IEdrService {
     /// Gets the EDR vendor name and version
     /// </summary>
     string GetEdrVersion();
-
-    /// <summary>
-    /// Gets the plugin version for this EDR implementation
-    /// </summary>
-    string GetPluginVersion();
 }
 
 public interface IAgentLogService {

@@ -21,12 +21,8 @@ public class KillResponse {
     public string? Message { get; set; }
 }
 
-public class EdrLogsResponse {
-    public string Logs { get; set; } = string.Empty;
-    [JsonPropertyName("edr_version")]
+public class EdrVersionResponse {
     public string EdrVersion { get; set; } = string.Empty;
-    [JsonPropertyName("plugin_version")]
-    public string PluginVersion { get; set; } = string.Empty;
 }
 
 public class ExecutionLogsResponse {

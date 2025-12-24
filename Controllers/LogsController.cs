@@ -20,37 +20,39 @@ public class LogsController : ControllerBase {
     }
 
     [HttpGet("edr")]
-    public async Task<ActionResult<EdrLogsResponse>> GetEdrLogs() {
+    public async Task<ActionResult<string>> GetEdrLogs() {
         try {
-            _logger.LogInformation("Retrieving EDR logs");
-
-            // Get the collected logs
             var logs = _edrService.GetLogs();
-            var edrVersion = _edrService.GetEdrVersion();
-            var pluginVersion = _edrService.GetPluginVersion();
+            return Ok(logs);
+        }
+        catch (Exception ex) {
+            _logger.LogError(ex, "LogsController: Error retrieving EDR logs");
+            return StatusCode(500, "Failed to retrieve EDR logs");
+        }
+    }
 
-            return Ok(new EdrLogsResponse {
-                Logs = logs,
+    [HttpGet("edrversion")]
+    public async Task<ActionResult<EdrVersionResponse>> GetEdrVersion() {
+        try {
+            var edrVersion = _edrService.GetEdrVersion();
+            return Ok(new EdrVersionResponse {
                 EdrVersion = edrVersion,
-                PluginVersion = pluginVersion
             });
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "Error retrieving EDR logs");
+            _logger.LogError(ex, "LogsController: Error retrieving EDR version");
 
-            return StatusCode(500, "Failed to retrieve EDR logs");
+            return StatusCode(500, "Failed to retrieve EDR version");
         }
     }
 
     [HttpGet("execution")]
     public async Task<ActionResult<ExecutionLogsResponse>> GetExecutionLogs() {
         try {
-            _logger.LogInformation("Retrieving execution logs");
-
             // Get the last used execution service
             var executionService = _executionTracking.GetLastExecutionService();
             if (executionService == null) {
-                _logger.LogWarning("No execution service found - no execution has been run yet");
+                _logger.LogWarning("LogsController: No execution service found - no execution has been run yet");
                 return BadRequest(new ExecutionLogsResponse {
                     Pid = 0,
                     Stdout = "",
@@ -69,8 +71,7 @@ public class LogsController : ControllerBase {
             return Ok(response);
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "Error retrieving execution logs");
-
+            _logger.LogError(ex, "LogsController: Error retrieving execution logs");
             return StatusCode(500, "Failed to retrieve execution logs");
         }
     }
@@ -78,7 +79,7 @@ public class LogsController : ControllerBase {
     [HttpGet("agent")]
     public ActionResult<string> GetAgentLogs() {
         try {
-            _logger.LogInformation("Retrieving agent logs");
+            _logger.LogInformation("LogsController: Retrieving agent logs");
 
             var logs = _agentLogService.GetAgentLogs();
             var logsString = string.Join("\n", logs);
@@ -86,8 +87,7 @@ public class LogsController : ControllerBase {
             return Ok(logsString);
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "Error retrieving agent logs");
-
+            _logger.LogError(ex, "LogsController: Error retrieving agent logs");
             return StatusCode(500, "Failed to retrieve agent logs");
         }
     }
@@ -95,15 +95,12 @@ public class LogsController : ControllerBase {
     [HttpDelete("agent")]
     public ActionResult<string> ClearAgentLogs() {
         try {
-            _logger.LogInformation("Clearing agent logs");
-
+            _logger.LogInformation("LogsController: Clearing agent logs");
             _agentLogService.ClearLogs();
-
             return Ok("Agent logs cleared successfully");
         }
         catch (Exception ex) {
-            _logger.LogError(ex, "Error clearing agent logs");
-
+            _logger.LogError(ex, "LogsController: Error clearing agent logs");
             return StatusCode(500, "Failed to clear agent logs");
         }
     }
