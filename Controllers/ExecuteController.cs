@@ -28,6 +28,7 @@ public class ExecuteController : ControllerBase {
     }
 
     [HttpPost("exec")]
+    [RequestSizeLimit(104857600)] // 100 MB
     public async Task<ActionResult<ExecuteFileResponse>> ExecuteFile([FromForm] IFormFile file,
         [FromForm] string? drop_path = null, 
         [FromForm] string? executable_args = null, 

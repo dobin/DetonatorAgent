@@ -3,6 +3,12 @@ using DetonatorAgent.EdrPlugins;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Configure Kestrel to accept larger request bodies (100MB)
+builder.WebHost.ConfigureKestrel(serverOptions =>
+{
+    serverOptions.Limits.MaxRequestBodySize = 104857600; // 100 MB
+});
+
 // Configure console logging to use simple format
 builder.Logging.ClearProviders();
 builder.Logging.AddSimpleConsole(options =>
