@@ -76,13 +76,14 @@ public class LogsController : ControllerBase {
     }
 
     [HttpGet("agent")]
-    public ActionResult<List<string>> GetAgentLogs() {
+    public ActionResult<string> GetAgentLogs() {
         try {
             _logger.LogInformation("Retrieving agent logs");
 
             var logs = _agentLogService.GetAgentLogs();
+            var logsString = string.Join("\n", logs);
 
-            return Ok(logs);
+            return Ok(logsString);
         }
         catch (Exception ex) {
             _logger.LogError(ex, "Error retrieving agent logs");
