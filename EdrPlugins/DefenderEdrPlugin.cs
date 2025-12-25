@@ -12,8 +12,9 @@ namespace DetonatorAgent.EdrPlugins;
 public class DefenderEdrPlugin : IEdrService {
     private readonly ILogger<DefenderEdrPlugin> _logger;
 
-    private DateTime _startTime;
-    private DateTime _stopTime;
+    private DateTime _startTime = default;
+    private DateTime _stopTime = default;
+
 
     public DefenderEdrPlugin(ILogger<DefenderEdrPlugin> logger) {
         _logger = logger;
@@ -22,6 +23,7 @@ public class DefenderEdrPlugin : IEdrService {
 
     public bool StartCollection() {
         _startTime = DateTime.UtcNow;
+        _stopTime = default;
         _logger.LogInformation("Defender Plugin: Started Windows Defender EDR log collection at {StartTime}", 
             _startTime.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"));
         return true;
@@ -44,6 +46,13 @@ public class DefenderEdrPlugin : IEdrService {
 
     [SupportedOSPlatform("windows")]
     private string GetDefenderEventsSince() {
+        // Without this check, if StartCollection was not called, we have no start time
+        // and we would return ALL events from the log, which can be a lot
+        if (_startTime == default) {
+            _logger.LogWarning("Defender Plugin: Error, StartCollection was not called before GetLogs");
+            return "";
+        }
+
         try {
             // Convert to the format expected by Event Log queries (ISO 8601 format)
             // Windows Event Log expects UTC time in this specific format
