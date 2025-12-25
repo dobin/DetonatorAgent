@@ -93,6 +93,12 @@ public class ExecuteController : ControllerBase {
                 fileContent = memoryStream.ToArray();
             }
 
+            // Start EDR collection
+            // This should be before StartProcess() to capture all events
+            // But that makes us miss some events like RTP, which seems to be starting on file write?
+            // Better do it before writing the file to be sure
+            _edrService.StartCollection();
+
             // Write the file
             _logger.LogInformation("Exec: Writing file: {FilePath}", filePath);
             if (!await executionService.WriteMalwareAsync(filePath, fileContent, xorKeyByte)) {
@@ -102,9 +108,6 @@ public class ExecuteController : ControllerBase {
                     Message = "Failed to write file"
                 });
             }
-
-            // Start EDR collection
-            _edrService.StartCollection();
 
             // Start the malware
             var (success, pid, errorMessage) = await executionService.StartProcessAsync(executable_args);

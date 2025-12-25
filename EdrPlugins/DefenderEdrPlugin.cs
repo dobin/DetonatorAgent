@@ -22,18 +22,18 @@ public class DefenderEdrPlugin : IEdrService {
 
 
     public bool StartCollection() {
-        _startTime = DateTime.UtcNow;
+        _startTime = DateTime.UtcNow;  // Use UTC to match Event Log SystemTime
         _stopTime = default;
         _logger.LogInformation("Defender Plugin: Started Windows Defender EDR log collection at {StartTime}", 
-            _startTime.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"));
+            _startTime.ToString("yyyy-MM-ddTHH:mm:ss.fff"));
         return true;
     }
 
 
     public bool StopCollection() {
-        _stopTime = DateTime.UtcNow;
+        _stopTime = DateTime.UtcNow;  // Use UTC to match Event Log SystemTime
         _logger.LogInformation("Defender Plugin: Stopping Windows Defender EDR log collection at {StopTime}",
-            _stopTime.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"));
+            _stopTime.ToString("yyyy-MM-ddTHH:mm:ss.fff"));
         return true;
     }
 
@@ -54,9 +54,12 @@ public class DefenderEdrPlugin : IEdrService {
         }
 
         try {
-            // Convert to the format expected by Event Log queries (ISO 8601 format)
-            // Windows Event Log expects UTC time in this specific format
-            string startTimeStr = _startTime.ToString("yyyy-MM-ddTHH:mm:ss.ffffff000Z");
+            // Convert to the format expected by Event Log queries (ISO 8601 format with Z suffix)
+            // Windows Event Log SystemTime is in UTC
+            // Note that we ROUND DOWN with .000000000Z for start time 
+            //      to catch events immediately following
+            // But not end time
+            string startTimeStr = _startTime.ToString("yyyy-MM-ddTHH:mm:ss.000000000Z");
             string endTimeStr = _stopTime.ToString("yyyy-MM-ddTHH:mm:ss.ffffff000Z");
             if (_stopTime == default) {
                 // If no end time (after killing the process) is given, we just assume its until NOW
