@@ -25,12 +25,6 @@ public class EdrVersionResponse {
     public string EdrVersion { get; set; } = string.Empty;
 }
 
-public class ExecutionLogsResponse {
-    public int Pid { get; set; }
-    public string Stdout { get; set; } = string.Empty;
-    public string Stderr { get; set; } = string.Empty;
-}
-
 public class AgentLogsResponse {
     public List<string> Logs { get; set; } = new();
     public int Count { get; set; }

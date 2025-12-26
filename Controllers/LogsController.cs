@@ -47,28 +47,19 @@ public class LogsController : ControllerBase {
     }
 
     [HttpGet("execution")]
-    public async Task<ActionResult<ExecutionLogsResponse>> GetExecutionLogs() {
+    public async Task<ActionResult<string>> GetExecutionLogs() {
         try {
             // Get the last used execution service
             var executionService = _executionTracking.GetLastExecutionService();
             if (executionService == null) {
-                _logger.LogWarning("LogsController: No execution service found - no execution has been run yet");
-                return BadRequest(new ExecutionLogsResponse {
-                    Pid = 0,
-                    Stdout = "",
-                    Stderr = "No execution has been run yet"
-                });
+                _logger.LogWarning("LogsController: No execution service found");
+                return BadRequest("LogsController: No execution service found");
             }
 
             var (pid, stdout, stderr) = await executionService.GetExecutionLogsAsync();
+            var ret = "stdout:\n" + stdout + "\n\nstderr:\n" + stderr;
 
-            var response = new ExecutionLogsResponse {
-                Pid = pid,
-                Stdout = stdout,
-                Stderr = stderr
-            };
-
-            return Ok(response);
+            return Ok(ret);
         }
         catch (Exception ex) {
             _logger.LogError(ex, "LogsController: Error retrieving execution logs");
