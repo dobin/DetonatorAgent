@@ -20,10 +20,10 @@ public class LogsController : ControllerBase {
     }
 
     [HttpGet("edr")]
-    public async Task<ActionResult<string>> GetEdrLogs() {
+    public async Task<ActionResult<EdrAlertsResponse>> GetEdrLogs() {
         try {
-            var logs = _edrService.GetLogs();
-            return Ok(logs);
+            var edrAlertsResponse = _edrService.GetEdrAlerts();
+            return Ok(edrAlertsResponse);
         }
         catch (Exception ex) {
             _logger.LogError(ex, "LogsController: Error retrieving EDR logs");

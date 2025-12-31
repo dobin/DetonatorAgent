@@ -116,7 +116,8 @@ public class ExecuteController : ControllerBase {
                     _logger.LogInformation("Exec: Malware execution blocked by antivirus");
                     return Ok(new ExecuteFileResponse {
                         Status = "virus",
-                        Pid = pid
+                        Pid = 0,
+                        Message = "Malware execution blocked by antivirus"
                     });
                 }
 

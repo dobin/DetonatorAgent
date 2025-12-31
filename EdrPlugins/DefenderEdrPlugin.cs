@@ -1,12 +1,17 @@
+using DetonatorAgent.Models;
 using DetonatorAgent.Services;
 using System.Diagnostics.Eventing.Reader;
 using System.Management;
 using System.Runtime.Versioning;
 using System.Text;
+using System.Text.Encodings.Web;
+using System.Text.Json;
 using System.Xml;
+using System.Xml.Linq;
 
 
 namespace DetonatorAgent.EdrPlugins;
+
 
 [SupportedOSPlatform("windows")]
 public class DefenderEdrPlugin : IEdrService {
@@ -38,34 +43,35 @@ public class DefenderEdrPlugin : IEdrService {
     }
 
 
-    public string GetLogs() {
-        var logs = GetDefenderEventsSince();
-        return logs;
+    public EdrAlertsResponse GetEdrAlerts() {
+        // Without this check, if StartCollection was not called, we have no start time
+        // and we would return ALL events from the log, which can be a lot
+        if (_startTime == default) {
+            _logger.LogWarning("Defender Plugin: Error, StartCollection was not called before GetEdrAlerts");
+            return new EdrAlertsResponse { Success = false, Alerts = new List<SubmissionAlert>(), IsDetected = false };
+        }
+
+        var rawLogs = GetDefenderEventsSince();
+        var edrAlertsResponse = ParseDefenderEvents(rawLogs);
+        return edrAlertsResponse;
     }
 
 
     [SupportedOSPlatform("windows")]
     private string GetDefenderEventsSince() {
-        // Without this check, if StartCollection was not called, we have no start time
-        // and we would return ALL events from the log, which can be a lot
-        if (_startTime == default) {
-            _logger.LogWarning("Defender Plugin: Error, StartCollection was not called before GetLogs");
-            return "";
+        // Convert to the format expected by Event Log queries (ISO 8601 format with Z suffix)
+        // Windows Event Log SystemTime is in UTC
+        // Note that we ROUND DOWN with .000000000Z for start time
+        //   - to catch events immediately following this
+        //   - But not end time
+        string startTimeStr = _startTime.ToString("yyyy-MM-ddTHH:mm:ss.000000000Z");
+        string endTimeStr = _stopTime.ToString("yyyy-MM-ddTHH:mm:ss.ffffff000Z");
+        if (_stopTime == default) {
+            // If no end time (after killing the process) is given, we just assume its until NOW
+            endTimeStr = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.ffffff000Z");
         }
 
         try {
-            // Convert to the format expected by Event Log queries (ISO 8601 format with Z suffix)
-            // Windows Event Log SystemTime is in UTC
-            // Note that we ROUND DOWN with .000000000Z for start time 
-            //      to catch events immediately following
-            // But not end time
-            string startTimeStr = _startTime.ToString("yyyy-MM-ddTHH:mm:ss.000000000Z");
-            string endTimeStr = _stopTime.ToString("yyyy-MM-ddTHH:mm:ss.ffffff000Z");
-            if (_stopTime == default) {
-                // If no end time (after killing the process) is given, we just assume its until NOW
-                endTimeStr = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.ffffff000Z");
-            }
-
             // XPath query for filtering events by time range
             string query = $"*[System[TimeCreated[@SystemTime >= '{startTimeStr}' and @SystemTime <= '{endTimeStr}']]]";
 
@@ -129,5 +135,147 @@ public class DefenderEdrPlugin : IEdrService {
         }
 
         return "Unknown";
+    }
+
+    private EdrAlertsResponse ParseDefenderEvents(string edrData)
+    {
+        var response = new EdrAlertsResponse
+        {
+            Success = false,
+            Alerts = new List<SubmissionAlert>(),
+            IsDetected = false
+        };
+
+        if (string.IsNullOrWhiteSpace(edrData))
+        {
+            _logger.LogWarning("Defender Plugin: No XML data provided for parsing");
+            return response;
+        }
+
+        try
+        {
+            // Remove namespace to simplify parsing (matching Python implementation)
+            edrData = edrData.Replace("xmlns='http://schemas.microsoft.com/win/2004/08/events/event'", "");
+            edrData = edrData.Replace("xmlns=\"http://schemas.microsoft.com/win/2004/08/events/event\"", "");
+
+            var xmlDoc = XDocument.Parse(edrData);
+            var events = xmlDoc.Descendants("Event");
+
+            foreach (var xmlEvent in events)
+            {
+                var parsedEvent = ParseWindowsEvent(xmlEvent);
+                
+                // Check if EventData exists and has a "Threat ID"
+                if (!parsedEvent.TryGetValue("EventData", out var eventDataObj) || 
+                    eventDataObj is not Dictionary<string, string> eventData ||
+                    !eventData.ContainsKey("Threat ID"))
+                {
+                    continue;
+                }
+
+                // Extract fields
+                string detectionId = eventData.GetValueOrDefault("Detection ID", "Unknown");
+                string categoryName = eventData.GetValueOrDefault("Category Name", "Unknown");
+                string detectionTimeStr = eventData.GetValueOrDefault("Detection Time", "Unknown");
+                string severityName = eventData.GetValueOrDefault("Severity Name", "Unknown");
+                string threatName = eventData.GetValueOrDefault("Threat Name", "Unknown");
+                string sourceName = eventData.GetValueOrDefault("Source Name", "Unknown");
+
+                // Parse detection time
+                DateTime? detectionTime = null;
+                if (detectionTimeStr != "Unknown")
+                {
+                    try
+                    {
+                        // Parse ISO 8601 format: 2025-07-04T14:55:37.511Z
+                        detectionTime = DateTime.Parse(detectionTimeStr.Replace("Z", "+00:00"), 
+                            null, System.Globalization.DateTimeStyles.RoundtripKind);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning("Defender Plugin: Failed to parse detection time '{DetectionTime}': {Error}", 
+                            detectionTimeStr, ex.Message);
+                    }
+                }
+
+                var alert = new SubmissionAlert
+                {
+                    Source = "Defender Local",
+                    Raw = JsonSerializer.Serialize(eventData),
+                    AlertId = detectionId,
+                    Title = threatName,
+                    Severity = severityName,
+                    Category = categoryName,
+                    DetectionSource = sourceName,
+                    DetectedAt = detectionTime,
+                    AdditionalData = new Dictionary<string, object>()
+                };
+
+                response.Alerts.Add(alert);
+            }
+
+            // Determine if detected
+            if (edrData.Contains("Suspicious") || edrData.Contains("Threat ID"))
+            {
+                response.IsDetected = true;
+            }
+
+            response.Success = true;
+            _logger.LogInformation("Defender Plugin: Successfully parsed {AlertCount} alerts", response.Alerts.Count);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Defender Plugin: Error parsing Windows Defender events");
+        }
+
+        return response;
+    }
+
+    private Dictionary<string, object> ParseWindowsEvent(XElement eventElement)
+    {
+        var data = new Dictionary<string, object>();
+
+        // Parse System section
+        var system = eventElement.Element("System");
+        if (system != null)
+        {
+            var systemData = new Dictionary<string, object>();
+            foreach (var child in system.Elements())
+            {
+                if (child.HasElements || child.Attributes().Any())
+                {
+                    // Handle elements with attributes or child elements
+                    var attrs = child.Attributes().ToDictionary(a => a.Name.LocalName, a => (object)a.Value);
+                    if (child.Value != null && !string.IsNullOrEmpty(child.Value))
+                    {
+                        attrs["_text"] = child.Value;
+                    }
+                    systemData[child.Name.LocalName] = attrs;
+                }
+                else
+                {
+                    systemData[child.Name.LocalName] = child.Value;
+                }
+            }
+            data["System"] = systemData;
+        }
+
+        // Parse EventData section
+        var eventData = eventElement.Element("EventData");
+        if (eventData != null)
+        {
+            var eventDataDict = new Dictionary<string, string>();
+            foreach (var dataElement in eventData.Elements("Data"))
+            {
+                var nameAttr = dataElement.Attribute("Name");
+                if (nameAttr != null)
+                {
+                    eventDataDict[nameAttr.Value] = dataElement.Value ?? string.Empty;
+                }
+            }
+            data["EventData"] = eventDataDict;
+        }
+
+        return data;
     }
 }

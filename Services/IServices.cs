@@ -1,3 +1,5 @@
+using DetonatorAgent.Models;
+
 namespace DetonatorAgent.Services;
 
 public interface ILockService {
@@ -32,7 +34,7 @@ public interface IEdrService {
     /// <summary>
     /// Gets the collected EDR logs since StartCollection was called
     /// </summary>
-    string GetLogs();
+    EdrAlertsResponse GetEdrAlerts();
 
     /// <summary>
     /// Gets the EDR vendor name and version

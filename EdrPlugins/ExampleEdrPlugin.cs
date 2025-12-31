@@ -1,3 +1,4 @@
+using DetonatorAgent.Models;
 using DetonatorAgent.Services;
 using System.Diagnostics.Eventing.Reader;
 using System.Runtime.Versioning;
@@ -24,9 +25,9 @@ public class ExampleEdrPlugin : IEdrService {
         return true;
     }
 
-    public string GetLogs() {
+    public EdrAlertsResponse GetEdrAlerts() {
         _logger.LogInformation("ExamplePlugin: Retrieving Example EDR logs");
-        return "<ExampleLogs><Log>Example log entry 1</Log><Log>Example log entry 2</Log></ExampleLogs>";
+        return new EdrAlertsResponse { Success = true, Alerts = new List<SubmissionAlert>(), IsDetected = false };
     }
 
     public string GetEdrVersion() {

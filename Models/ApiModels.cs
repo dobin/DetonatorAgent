@@ -44,3 +44,23 @@ public class LockErrorResponse {
     public string Status { get; set; } = "error";
     public string Message { get; set; } = string.Empty;
 }
+
+public class SubmissionAlert
+{
+    public string Source { get; set; } = string.Empty;
+    public string Raw { get; set; } = string.Empty;
+    public string AlertId { get; set; } = string.Empty;
+    public string? Title { get; set; }
+    public string? Severity { get; set; }
+    public string? Category { get; set; }
+    public string? DetectionSource { get; set; }
+    public DateTime? DetectedAt { get; set; }
+    public Dictionary<string, object>? AdditionalData { get; set; }
+}
+
+public class EdrAlertsResponse
+{
+    public bool Success { get; set; }
+    public List<SubmissionAlert> Alerts { get; set; } = new();
+    public bool IsDetected { get; set; }
+}
