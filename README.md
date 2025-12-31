@@ -26,7 +26,7 @@ be made publicly available sometimes maybe.
 Use `execfile.ps1`:
 
 ```
-> powershell.exe -ep bypass .\execfile.ps1 -file mimikatz.exe -executionmode exec                         
+> powershell.exe -ep bypass .\execfile.ps1 -file mimikatz.exe -executionmode exec
 
 Executing file...
 File Execution status: virus
@@ -97,7 +97,7 @@ calling `/api/exec/execute` and calling `/api/exec/kill` OR the current time.
 
 Example:
 ```
-> curl.exe http://localhost:8080/api/logs/edr                                                        
+> curl.exe http://localhost:8080/api/logs/edr
 {
   "success": true,
   "alerts": [

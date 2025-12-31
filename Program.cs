@@ -45,6 +45,7 @@ if (OperatingSystem.IsWindows()) {
     // Register all Windows execution service implementations
     builder.Services.AddSingleton<IExecutionService, WindowsExecutionServiceExec>();
     builder.Services.AddSingleton<IExecutionService, WindowsExecutionServiceAutoit>();
+    builder.Services.AddSingleton<IExecutionService, WindowsExecutionServiceClickfix>();
 }
 else {
     // Register Linux execution service implementation

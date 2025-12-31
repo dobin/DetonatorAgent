@@ -10,19 +10,16 @@ namespace DetonatorAgent.Controllers;
 [SupportedOSPlatform("windows")]
 public class ExecuteController : ControllerBase {
     private readonly ILogger<ExecuteController> _logger;
-    private readonly ILogger<WindowsExecutionServiceExec> _execLogger;
-    private readonly ILogger<WindowsExecutionServiceAutoit> _autoitLogger;
+    private readonly ILogger<IExecutionService> _executionLogger;
     private readonly IEdrService _edrService;
     private readonly ExecutionTrackingService _executionTracking;
 
     public ExecuteController(ILogger<ExecuteController> logger, 
-        ILogger<WindowsExecutionServiceExec> execLogger,
-        ILogger<WindowsExecutionServiceAutoit> autoitLogger,
+        ILogger<IExecutionService> executionLogger,
         IEdrService edrService,
         ExecutionTrackingService executionTracking) {
         _logger = logger;
-        _execLogger = execLogger;
-        _autoitLogger = autoitLogger;
+        _executionLogger = executionLogger;
         _edrService = edrService;
         _executionTracking = executionTracking;
     }
@@ -42,12 +39,14 @@ public class ExecuteController : ControllerBase {
             // This will track all execution & artefacts
             IExecutionService executionService;
             if (execution_mode == "exec") {
-                executionService = new WindowsExecutionServiceExec(_execLogger);
+                executionService = new WindowsExecutionServiceExec(_executionLogger);
             } else if (execution_mode == "autoit") {
-                executionService = new WindowsExecutionServiceAutoit(_autoitLogger);
+                executionService = new WindowsExecutionServiceAutoit(_executionLogger);
+            } else if (execution_mode == "clickfix") {
+                executionService = new WindowsExecutionServiceClickfix(_executionLogger);
             } else {
                 // Use "exec" as default execution mode
-                executionService = new WindowsExecutionServiceExec(_execLogger);
+                executionService = new WindowsExecutionServiceExec(_executionLogger);
                 _logger.LogInformation("Exec: No execution_mode provided, defaulting to 'exec'");
             }
             

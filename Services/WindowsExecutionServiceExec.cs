@@ -6,7 +6,7 @@ using System.IO.Compression;
 namespace DetonatorAgent.Services;
 
 public class WindowsExecutionServiceExec : IExecutionService {
-    private readonly ILogger<WindowsExecutionServiceExec> _logger;
+    private readonly ILogger<IExecutionService> _logger;
     private string _executableFilePath = "";
     public string ExecutionTypeName => "exec";
 
@@ -17,7 +17,7 @@ public class WindowsExecutionServiceExec : IExecutionService {
     private Process? _lastProcess = null;
     private List<string> _cleanupFiles = new List<string>();
 
-    public WindowsExecutionServiceExec(ILogger<WindowsExecutionServiceExec> logger) {
+    public WindowsExecutionServiceExec(ILogger<IExecutionService> logger) {
         _logger = logger;
     }
 

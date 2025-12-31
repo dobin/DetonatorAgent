@@ -8,7 +8,7 @@ namespace DetonatorAgent.Services;
 
 [SupportedOSPlatform("windows")]
 public class WindowsExecutionServiceAutoit : IExecutionService {
-    private readonly ILogger<WindowsExecutionServiceAutoit> _logger;
+    private readonly ILogger<IExecutionService> _logger;
     private readonly object _processLock = new object();
     private string _executableFilePath = "";
 
@@ -27,7 +27,7 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
 
     public string ExecutionTypeName => "autoit";
 
-    public WindowsExecutionServiceAutoit(ILogger<WindowsExecutionServiceAutoit> logger) {
+    public WindowsExecutionServiceAutoit(ILogger<IExecutionService> logger) {
         _logger = logger;
     }
 

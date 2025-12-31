@@ -23,7 +23,7 @@ param(
     [string]$ExecutableName = "",
     
     [Parameter(Mandatory=$false, HelpMessage="Execution service type (exec, autoit)")]
-    [ValidateSet("exec", "autoit", "")]
+    [ValidateSet("exec", "autoit", "clickfix")]
     [string]$ExecutionMode = "autoit",
     
     [Parameter(Mandatory=$false, HelpMessage="Base URL of the DetonatorAgent API")]
@@ -166,7 +166,7 @@ try {
         #Write-Host "  Getting execution logs..." -ForegroundColor Gray
         $execLogs = curl.exe -s -X GET "$BaseUrl/api/logs/execution"
         if ($LASTEXITCODE -eq 0) {
-            Write-Host "  Execution logs retrieved" -ForegroundColor Green
+            #Write-Host "  Execution logs retrieved" -ForegroundColor Green
             #Write-Host "  Response: $execLogs" -ForegroundColor Gray
         } else {
             Write-Host "  Warning: Failed to retrieve execution logs" -ForegroundColor Yellow
