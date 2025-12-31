@@ -63,8 +63,8 @@ if (OperatingSystem.IsWindows()) {
             builder.Services.AddSingleton<IEdrService, ExampleEdrPlugin>();
             break;
         default:
-            builder.Services.AddSingleton<IEdrService, DefenderEdrPlugin>();
-            break;
+            Console.WriteLine($"Warning: Unknown EDR service '{edrService}' specified.");
+            return;
     }
 }
 else {

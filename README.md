@@ -77,9 +77,13 @@ Example:
 ## Running the Application
 
 ### Prerequisites
+
 - .NET 8.0 SDK
 
-### Start the API
+### Start the API (for MDE)
+
+If you use Defender or MDE:
+
 ```powershell
 dotnet run
 ```
@@ -87,6 +91,15 @@ dotnet run
 The API will be available at:
 - HTTP: http://localhost:8080
 - Swagger UI: http://localhost:8080/swagger
+
+
+### Choose EDR
+
+To select the EDR you are using, in this case elastic:
+
+```powershell
+dotnet run -- --edr=elastic
+```
 
 
 ## Usage: With curl
@@ -132,6 +145,18 @@ curl.exe -X POST http://localhost:8080/api/execute/exec -F "file=@c:\tools\proce
 
 
 ### Get the EDR logs
+
+Grab the EDR logs:
+
+```bash
+curl.exe -s -X POST http://localhost:8080/api/logs/edr
+```
+
+It will return all EDR events between:
+* Start of execution with `/api/execute/exec`
+* Stop of execution with `/api/execute/kill` - OR current time
+
+
 
 ### Cleanup
 

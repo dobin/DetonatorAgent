@@ -36,30 +36,26 @@ if (-not (Test-Path $File)) {
     exit 1
 }
 
-Write-Host "=== DetonatorAgent Workflow ===" -ForegroundColor Green
-Write-Host "File: $File" -ForegroundColor Yellow
-Write-Host "Drop Path: $DropPath" -ForegroundColor Yellow
-Write-Host "Executable Args: $ExecutableArgs" -ForegroundColor Yellow
-Write-Host "Executable Name: $ExecutableName" -ForegroundColor Yellow
-Write-Host "Execution Mode: $ExecutionMode" -ForegroundColor Yellow
-Write-Host "Base URL: $BaseUrl" -ForegroundColor Yellow
+Write-Host "File: $File"
+Write-Host "Drop Path: $DropPath"
+Write-Host "Executable Args: $ExecutableArgs"
+Write-Host "Executable Name: $ExecutableName"
+Write-Host "Execution Mode: $ExecutionMode"
+Write-Host "Base URL: $BaseUrl"
 Write-Host ""
 
-# Step 1: Acquire Lock
-Write-Host "Step 1: Acquiring lock..." -ForegroundColor Cyan
+# Acquire Lock
+#Write-Host "Acquiring lock..." -ForegroundColor Cyan
 $lockResponse = curl.exe -s -X POST "$BaseUrl/api/lock/acquire"
 $lockStatus = $LASTEXITCODE
-
 if ($lockStatus -ne 0) {
     Write-Host "Error: Failed to acquire lock (curl exit code: $lockStatus)" -ForegroundColor Red
     exit 1
 }
-
-Write-Host "Lock acquired successfully" -ForegroundColor Green
+#Write-Host "Lock acquired successfully" -ForegroundColor Green
 
 try {
-    # Step 2: Execute file
-    Write-Host "`nStep 2: Executing file..." -ForegroundColor Cyan
+    # Execute file
     $fileName = [System.IO.Path]::GetFileName($File)
     
     # Build curl command with all parameters
@@ -70,100 +66,126 @@ try {
         "-F", "file=@$File",
         "-F", "drop_path=$DropPath"
     )
-    
     # Add optional executable_args parameter
     if ($ExecutableArgs) {
         $curlArgs += "-F"
         $curlArgs += "executable_args=$ExecutableArgs"
     }
-    
     # Add optional executable_name parameter
     if ($ExecutableName) {
         $curlArgs += "-F"
         $curlArgs += "executable_name=$ExecutableName"
     }
-    
     # Add optional execution_mode parameter
     if ($ExecutionMode) {
         $curlArgs += "-F"
         $curlArgs += "execution_mode=$ExecutionMode"
     }
     
+    # Execute
+    Write-Host "Executing file..."
     $execResponse = & curl.exe $curlArgs
     $execStatus = $LASTEXITCODE
-    
     if ($execStatus -ne 0) {
         Write-Host "Error: Failed to execute file (curl exit code: $execStatus)" -ForegroundColor Red
         throw "Execution failed"
     }
-    
-    Write-Host "File executed successfully" -ForegroundColor Green
-    Write-Host "Response: $execResponse" -ForegroundColor Gray
-    
-    # Step 3: Wait 10 seconds
-    Write-Host "`nStep 3: Waiting 10 seconds..." -ForegroundColor Cyan
-    for ($i = 10; $i -gt 0; $i--) {
-        Write-Host "  $i seconds remaining..." -ForegroundColor Gray
-        Start-Sleep -Seconds 1
+    # Parse and check the execution response
+    $status = ""
+    try {
+        $responseObj = $execResponse | ConvertFrom-Json
+        $status = $responseObj.status # "virus", "ok", "error"
     }
-    Write-Host "Wait completed" -ForegroundColor Green
-    
-    # Step 4: Retrieve logs
-    Write-Host "`nStep 4: Retrieving logs..." -ForegroundColor Cyan
-    
-    # Get EDR logs
-    Write-Host "  Getting EDR logs..." -ForegroundColor Gray
-    $edrLogs = curl.exe -s -X GET "$BaseUrl/api/logs/edr"
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "  EDR logs retrieved" -ForegroundColor Green
-        Write-Host "  Response: $edrLogs" -ForegroundColor Gray
-    } else {
-        Write-Host "  Warning: Failed to retrieve EDR logs" -ForegroundColor Yellow
+    catch {
+        Write-Host "Warning: Failed to parse execution response" -ForegroundColor Red
+        Write-Host "Response: $execResponse" -ForegroundColor Gray
+    }
+    Write-Host "File Execution status: $status" -ForegroundColor Yellow
+
+    # Wait, if execution was successful
+    if ($status -eq "ok") {
+        Write-Host "Execution running, waiting 10 seconds..."
+        for ($i = 10; $i -gt 0; $i--) {
+            Write-Host "." -NoNewline -ForegroundColor Gray
+            Start-Sleep -Seconds 1
+        }
+        Write-Host ""
+    }
+    # Kill process if it ran
+    if ($status -eq "ok") {
+        Write-Host "Killing process..."
+        $killResponse = curl.exe -s -X POST "$BaseUrl/api/execute/kill"
+        $killStatus = $LASTEXITCODE
+        if ($killStatus -ne 0) {
+            Write-Host "Warning: Failed to kill process (curl exit code: $killStatus)" -ForegroundColor Yellow
+        }
+    }
+
+    # If its detected on file write, still wait a bit to allow EDR to process
+    if ($status -eq "virus") {
+        Write-Host -NoNewline "`nWait a bit for EDR to process before getting EDR alerts " -ForegroundColor Gray
+        for ($i = 3; $i -gt 0; $i--) {
+            Write-Host "." -NoNewline -ForegroundColor Gray
+            Start-Sleep -Seconds 1
+        }
+        Write-Host ""
     }
     
-    # Get execution logs
-    Write-Host "  Getting execution logs..." -ForegroundColor Gray
-    $execLogs = curl.exe -s -X GET "$BaseUrl/api/logs/execution"
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "  Execution logs retrieved" -ForegroundColor Green
-        #Write-Host "  Response: $execLogs" -ForegroundColor Gray
-    } else {
-        Write-Host "  Warning: Failed to retrieve execution logs" -ForegroundColor Yellow
+    # Retrieve logs
+    #Write-Host "`nRetrieving logs..." -ForegroundColor Cyan
+    
+    # Get EDR logs if executed, or detected on file write
+    if ($status -eq "virus" -or $status -eq "ok") {
+        #Write-Host "  Getting EDR logs..." -ForegroundColor Gray
+        $edrLogs = curl.exe -s -X GET "$BaseUrl/api/logs/edr"
+        if ($LASTEXITCODE -eq 0) {
+            #Write-Host "  EDR logs retrieved" -ForegroundColor Green
+            
+            # Parse and display alerts as table
+            try {
+                $edrResponse = $edrLogs | ConvertFrom-Json
+                if ($edrResponse.alerts -and $edrResponse.alerts.Count -gt 0) {
+                    #Write-Host "EDR Alerts:" -ForegroundColor Yellow
+                    $edrResponse.alerts | Select-Object title, severity, category | Format-Table -AutoSize
+                } else {
+                    Write-Host "No alerts found" -ForegroundColor Green
+                }
+            }
+            catch {
+                Write-Host "  Warning: Failed to parse EDR logs" -ForegroundColor Yellow
+                Write-Host "  Response: $edrLogs" -ForegroundColor Gray
+            }
+
+        } else {
+            Write-Host "  Warning: Failed to retrieve EDR logs" -ForegroundColor Yellow
+        }
+    }
+    
+    # Get execution logs if executed
+    if ($status -eq "ok") {
+        #Write-Host "  Getting execution logs..." -ForegroundColor Gray
+        $execLogs = curl.exe -s -X GET "$BaseUrl/api/logs/execution"
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "  Execution logs retrieved" -ForegroundColor Green
+            #Write-Host "  Response: $execLogs" -ForegroundColor Gray
+        } else {
+            Write-Host "  Warning: Failed to retrieve execution logs" -ForegroundColor Yellow
+        }
     }
     
     # Get agent logs
-    Write-Host "  Getting agent logs..." -ForegroundColor Gray
+    #Write-Host "  Getting agent logs..." -ForegroundColor Gray
     $agentLogs = curl.exe -s -X GET "$BaseUrl/api/logs/agent"
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "  Agent logs retrieved" -ForegroundColor Green
-        #Write-Host "  Response: $agentLogs" -ForegroundColor Gray
-    } else {
+    if ($LASTEXITCODE -ne 0) {
         Write-Host "  Warning: Failed to retrieve agent logs" -ForegroundColor Yellow
-    }
-    
-    # Step 5: Kill process
-    Write-Host "`nStep 5: Killing process..." -ForegroundColor Cyan
-    $killResponse = curl.exe -s -X POST "$BaseUrl/api/execute/kill"
-    $killStatus = $LASTEXITCODE
-    
-    if ($killStatus -eq 0) {
-        Write-Host "Process killed successfully" -ForegroundColor Green
-        Write-Host "Response: $killResponse" -ForegroundColor Gray
-    } else {
-        Write-Host "Warning: Failed to kill process (curl exit code: $killStatus)" -ForegroundColor Yellow
     }
 }
 finally {
-    # Step 6: Release Lock (always execute)
-    Write-Host "`nStep 6: Releasing lock..." -ForegroundColor Cyan
+    # Release Lock (always execute)
+    #Write-Host "`nReleasing lock..." -ForegroundColor Cyan
     $unlockResponse = curl.exe -s -X POST "$BaseUrl/api/lock/release"
     $unlockStatus = $LASTEXITCODE
-    
-    if ($unlockStatus -eq 0) {
-        Write-Host "Lock released successfully" -ForegroundColor Green
-    } else {
+    if ($unlockStatus -ne 0) {
         Write-Host "Warning: Failed to release lock (curl exit code: $unlockStatus)" -ForegroundColor Yellow
     }
 }
-
-Write-Host "`n=== Workflow completed ===" -ForegroundColor Green

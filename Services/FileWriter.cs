@@ -1,16 +1,7 @@
 namespace DetonatorAgent.Services;
 
-/// <summary>
-/// Utility class for writing files with optional XOR decoding
-/// </summary>
 public static class FileWriter {
-    /// <summary>
     /// Writes a byte array to a file, optionally XOR decoding it byte by byte during the write process
-    /// </summary>
-    /// <param name="filePath">The path where the file should be written</param>
-    /// <param name="content">The byte array to write</param>
-    /// <param name="xorKey">Optional XOR key for decoding (0-255)</param>
-    /// <returns>Task representing the async operation</returns>
     public static async Task WriteAsync(string filePath, byte[] content, byte? xorKey = null) {
         if (content == null || content.Length == 0) {
             await File.WriteAllBytesAsync(filePath, Array.Empty<byte>());
