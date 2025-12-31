@@ -62,5 +62,5 @@ public class EdrAlertsResponse
 {
     public bool Success { get; set; }
     public List<SubmissionAlert> Alerts { get; set; } = new();
-    public bool IsDetected { get; set; }
+    public bool Detected { get; set; }
 }

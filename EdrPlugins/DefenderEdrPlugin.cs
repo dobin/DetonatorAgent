@@ -48,7 +48,7 @@ public class DefenderEdrPlugin : IEdrService {
         // and we would return ALL events from the log, which can be a lot
         if (_startTime == default) {
             _logger.LogWarning("Defender Plugin: Error, StartCollection was not called before GetEdrAlerts");
-            return new EdrAlertsResponse { Success = false, Alerts = new List<SubmissionAlert>(), IsDetected = false };
+            return new EdrAlertsResponse { Success = false, Alerts = new List<SubmissionAlert>(), Detected = false };
         }
 
         var rawLogs = GetDefenderEventsSince();
@@ -143,7 +143,7 @@ public class DefenderEdrPlugin : IEdrService {
         {
             Success = false,
             Alerts = new List<SubmissionAlert>(),
-            IsDetected = false
+            Detected = false
         };
 
         if (string.IsNullOrWhiteSpace(edrData))
@@ -217,7 +217,7 @@ public class DefenderEdrPlugin : IEdrService {
             // Determine if detected
             if (edrData.Contains("Suspicious") || edrData.Contains("Threat ID"))
             {
-                response.IsDetected = true;
+                response.Detected = true;
             }
 
             response.Success = true;

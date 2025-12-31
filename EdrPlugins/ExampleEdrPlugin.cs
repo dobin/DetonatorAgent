@@ -27,7 +27,7 @@ public class ExampleEdrPlugin : IEdrService {
 
     public EdrAlertsResponse GetEdrAlerts() {
         _logger.LogInformation("ExamplePlugin: Retrieving Example EDR logs");
-        return new EdrAlertsResponse { Success = true, Alerts = new List<SubmissionAlert>(), IsDetected = false };
+        return new EdrAlertsResponse { Success = true, Alerts = new List<SubmissionAlert>(), Detected = false };
     }
 
     public string GetEdrVersion() {
