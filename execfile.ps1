@@ -55,6 +55,19 @@ if ($lockStatus -ne 0) {
 #Write-Host "Lock acquired successfully" -ForegroundColor Green
 
 try {
+    # Encrypt file
+    $xorKey = Get-Random -Minimum 1 -Maximum 256
+    $fileBytes = [System.IO.File]::ReadAllBytes($File)
+    $encryptedBytes = New-Object byte[] $fileBytes.Length
+    for ($i = 0; $i -lt $fileBytes.Length; $i++) {
+        $encryptedBytes[$i] = $fileBytes[$i] -bxor $xorKey
+    }
+    
+    # Write encrypted file to temporary location
+    $tempFile = [System.IO.Path]::GetTempFileName()
+    [System.IO.File]::WriteAllBytes($tempFile, $encryptedBytes)
+    Write-Host "Encrypted file created: $tempFile" -ForegroundColor Gray
+    
     # Execute file
     $fileName = [System.IO.Path]::GetFileName($File)
     
@@ -63,8 +76,9 @@ try {
         "-s",
         "-X", "POST",
         "$BaseUrl/api/execute/exec",
-        "-F", "file=@$File",
-        "-F", "drop_path=$DropPath"
+        "-F", "file=@$tempFile;filename=$fileName",
+        "-F", "drop_path=$DropPath",
+        "-F", "xor_key=$xorKey"
     )
     # Add optional executable_args parameter
     if ($ExecutableArgs) {
@@ -83,7 +97,7 @@ try {
     }
     
     # Execute
-    Write-Host "Executing file..."
+    Write-Host "Executing file on DetonatorAgent..."
     $execResponse = & curl.exe $curlArgs
     $execStatus = $LASTEXITCODE
     if ($execStatus -ne 0) {
@@ -178,6 +192,12 @@ try {
     $agentLogs = curl.exe -s -X GET "$BaseUrl/api/logs/agent"
     if ($LASTEXITCODE -ne 0) {
         Write-Host "  Warning: Failed to retrieve agent logs" -ForegroundColor Yellow
+    }
+    
+    # Cleanup temporary encrypted file
+    if (Test-Path $tempFile) {
+        Remove-Item $tempFile -Force
+        Write-Host "Cleaned up temporary encrypted file" -ForegroundColor Gray
     }
 }
 finally {
