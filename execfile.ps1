@@ -1,5 +1,5 @@
 # Simple workflow script for DetonatorAgent
-# Usage: .\scan-file.ps1 -File "C:\path\to\executable.exe" [-DropPath "C:\target\path\"] [-ExecutableArgs "arg1 arg2"] [-ExecutableName "file.exe"] [-ExecutionMode "exec"]
+# Usage: .\scan-file.ps1 -File "C:\path\to\executable.exe" [-DropPath "C:\target\path\"] [-ExecutableArgs "arg1 arg2"] [-ExecutableName "file.exe"] [-ExecutionMode "exec"] [-Runtime 10]
 # 
 # Parameters:
 #   -File: Path to the file to execute (required)
@@ -7,6 +7,7 @@
 #   -ExecutableArgs: Arguments to pass to the executable (optional)
 #   -ExecutableName: Specific file to execute from an archive (optional, for ZIP/ISO files)
 #   -ExecutionMode: Execution service to use: "exec", "autoit"
+#   -Runtime: Duration in seconds to wait before killing the process (optional, default: 10)
 #   -BaseUrl: Base URL of the DetonatorAgent API (optional, default: http://localhost:8080)
 
 param(
@@ -26,6 +27,9 @@ param(
     [ValidateSet("exec", "autoit", "clickfix")]
     [string]$ExecutionMode = "autoit",
     
+    [Parameter(Mandatory=$false, HelpMessage="Duration in seconds to wait before killing the process")]
+    [int]$Runtime = 10,
+    
     [Parameter(Mandatory=$false, HelpMessage="Base URL of the DetonatorAgent API")]
     [string]$BaseUrl = "http://localhost:8080"
 )
@@ -36,11 +40,76 @@ if (-not (Test-Path $File)) {
     exit 1
 }
 
+# Function to get EDR alerts and display only new ones
+function Get-EdrAlerts {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$BaseUrl,
+        
+        [Parameter(Mandatory=$false)]
+        [int]$Sleep = 1,
+        
+        [Parameter(Mandatory=$false)]
+        [int]$Count = 1
+    )
+
+    Write-Host "Poll for alerts every second for $Count seconds..."
+    Write-Host ""
+    
+    # Track seen alerts across all iterations
+    $SeenAlerts = @{}
+    $HeaderDisplayed = $false
+    
+    for ($iteration = 0; $iteration -lt $Count; $iteration++) {
+        $edrLogs = curl.exe -s -X GET "$BaseUrl/api/logs/edr"
+        if ($LASTEXITCODE -eq 0) {
+            try {
+                $edrResponse = $edrLogs | ConvertFrom-Json
+                if ($edrResponse.alerts -and $edrResponse.alerts.Count -gt 0) {
+                    # Filter for new alerts only
+                    foreach ($alert in $edrResponse.alerts) {
+                        if (-not $SeenAlerts.ContainsKey($alert.alertId)) {
+                            $SeenAlerts[$alert.alertId] = $true
+                            
+                            # Display header only once
+                            if (-not $HeaderDisplayed) {
+                                Write-Host "title                   severity category alertId"
+                                Write-Host "-----                   -------- -------- -------"
+                                $HeaderDisplayed = $true
+                            }
+                            
+                            # Display new alert as a single row
+                            $titlePadded = $alert.title.PadRight(23)
+                            $severityPadded = $alert.severity.PadRight(8)
+                            $categoryPadded = $alert.category.PadRight(8)
+                            Write-Host "$titlePadded $severityPadded $categoryPadded $($alert.alertId)"
+                        }
+                    }
+                } else {
+                    #Write-Host "No alerts found" -ForegroundColor Green
+                }
+            }
+            catch {
+                Write-Host "  Warning: Failed to parse EDR logs" -ForegroundColor Yellow
+                Write-Host "  Response: $edrLogs" -ForegroundColor Gray
+            }
+        } else {
+            Write-Host "  Warning: Failed to retrieve EDR logs" -ForegroundColor Yellow
+        }
+        
+        # Sleep between iterations (but not after the last one)
+        if ($Sleep -gt 0 -and $iteration -lt ($Count - 1)) {
+            Start-Sleep -Seconds $Sleep
+        }
+    }
+}
+
 Write-Host "File: $File"
 Write-Host "Drop Path: $DropPath"
 Write-Host "Executable Args: $ExecutableArgs"
 Write-Host "Executable Name: $ExecutableName"
 Write-Host "Execution Mode: $ExecutionMode"
+Write-Host "Runtime: $Runtime seconds"
 Write-Host "Base URL: $BaseUrl"
 Write-Host ""
 
@@ -70,8 +139,6 @@ try {
     
     # Execute file
     $fileName = [System.IO.Path]::GetFileName($File)
-    
-    # Build curl command with all parameters
     $curlArgs = @(
         "-s",
         "-X", "POST",
@@ -116,15 +183,24 @@ try {
     }
     Write-Host "File Execution status: $status" -ForegroundColor Yellow
 
-    # Wait, if execution was successful
-    if ($status -eq "ok") {
-        Write-Host "Execution running, waiting 10 seconds..."
-        for ($i = 10; $i -gt 0; $i--) {
-            Write-Host "." -NoNewline -ForegroundColor Gray
-            Start-Sleep -Seconds 1
-        }
-        Write-Host ""
+    # Cleanup temporary encrypted file
+    if (Test-Path $tempFile) {
+        Remove-Item $tempFile -Force
+    #    Write-Host "Cleaned up temporary encrypted file" -ForegroundColor Gray
     }
+
+    # Wait & Poll (if execution was successful)
+    if ($status -eq "ok") {
+        Write-Host "Execution running, waiting $Runtime seconds..."
+        Get-EdrAlerts -BaseUrl $BaseUrl -Sleep 1 -Count $Runtime
+        Write-Host "Polling/Runtime finished"
+    }
+    # If its detected on file write, 
+    # poll for 3 seconds to allow EDR to process
+    if ($status -eq "virus") {
+        Get-EdrAlerts -BaseUrl $BaseUrl -Sleep 1 -Count 3
+    }
+
     # Kill process if it ran
     if ($status -eq "ok") {
         Write-Host "Killing process..."
@@ -135,70 +211,25 @@ try {
         }
     }
 
-    # If its detected on file write, still wait a bit to allow EDR to process
-    if ($status -eq "virus") {
-        Write-Host -NoNewline "`nWait a bit for EDR to process before getting EDR alerts " -ForegroundColor Gray
-        for ($i = 3; $i -gt 0; $i--) {
-            Write-Host "." -NoNewline -ForegroundColor Gray
-            Start-Sleep -Seconds 1
-        }
-        Write-Host ""
-    }
-    
-    # Retrieve logs
-    #Write-Host "`nRetrieving logs..." -ForegroundColor Cyan
-    
-    # Get EDR logs if executed, or detected on file write
-    if ($status -eq "virus" -or $status -eq "ok") {
-        #Write-Host "  Getting EDR logs..." -ForegroundColor Gray
-        $edrLogs = curl.exe -s -X GET "$BaseUrl/api/logs/edr"
-        if ($LASTEXITCODE -eq 0) {
-            #Write-Host "  EDR logs retrieved" -ForegroundColor Green
-            
-            # Parse and display alerts as table
-            try {
-                $edrResponse = $edrLogs | ConvertFrom-Json
-                if ($edrResponse.alerts -and $edrResponse.alerts.Count -gt 0) {
-                    #Write-Host "EDR Alerts:" -ForegroundColor Yellow
-                    $edrResponse.alerts | Select-Object title, severity, category | Format-Table -AutoSize
-                } else {
-                    Write-Host "No alerts found" -ForegroundColor Green
-                }
-            }
-            catch {
-                Write-Host "  Warning: Failed to parse EDR logs" -ForegroundColor Yellow
-                Write-Host "  Response: $edrLogs" -ForegroundColor Gray
-            }
-
-        } else {
-            Write-Host "  Warning: Failed to retrieve EDR logs" -ForegroundColor Yellow
-        }
-    }
-    
     # Get execution logs if executed
-    if ($status -eq "ok") {
-        #Write-Host "  Getting execution logs..." -ForegroundColor Gray
-        $execLogs = curl.exe -s -X GET "$BaseUrl/api/logs/execution"
-        if ($LASTEXITCODE -eq 0) {
-            #Write-Host "  Execution logs retrieved" -ForegroundColor Green
-            #Write-Host "  Response: $execLogs" -ForegroundColor Gray
-        } else {
-            Write-Host "  Warning: Failed to retrieve execution logs" -ForegroundColor Yellow
-        }
-    }
+    #if ($status -eq "ok") {
+    #    #Write-Host "  Getting execution logs..." -ForegroundColor Gray
+    #    $execLogs = curl.exe -s -X GET "$BaseUrl/api/logs/execution"
+    #    if ($LASTEXITCODE -eq 0) {
+    #        #Write-Host "  Execution logs retrieved" -ForegroundColor Green
+    #        #Write-Host "  Response: $execLogs" -ForegroundColor Gray
+    #    } else {
+    #        Write-Host "  Warning: Failed to retrieve execution logs" -ForegroundColor Yellow
+    #    }
+    #}
     
     # Get agent logs
     #Write-Host "  Getting agent logs..." -ForegroundColor Gray
-    $agentLogs = curl.exe -s -X GET "$BaseUrl/api/logs/agent"
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "  Warning: Failed to retrieve agent logs" -ForegroundColor Yellow
-    }
-    
-    # Cleanup temporary encrypted file
-    if (Test-Path $tempFile) {
-        Remove-Item $tempFile -Force
-        Write-Host "Cleaned up temporary encrypted file" -ForegroundColor Gray
-    }
+    #$agentLogs = curl.exe -s -X GET "$BaseUrl/api/logs/agent"
+    #if ($LASTEXITCODE -ne 0) {
+    #    Write-Host "  Warning: Failed to retrieve agent logs" -ForegroundColor Yellow
+    #}
+
 }
 finally {
     # Release Lock (always execute)
