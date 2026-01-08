@@ -23,7 +23,7 @@ param(
     [Parameter(Mandatory=$false, HelpMessage="Specific file to execute from an archive")]
     [string]$ExecutableName = "",
     
-    [Parameter(Mandatory=$false, HelpMessage="Execution service type (exec, autoit)")]
+    [Parameter(Mandatory=$false, HelpMessage="Execution service type (exec, autoit, clickfix)")]
     [ValidateSet("exec", "autoit", "clickfix")]
     [string]$ExecutionMode = "autoit",
     
@@ -118,7 +118,7 @@ Write-Host ""
 $lockResponse = curl.exe -s -X POST "$BaseUrl/api/lock/acquire"
 $lockStatus = $LASTEXITCODE
 if ($lockStatus -ne 0) {
-    Write-Host "Error: Failed to acquire lock (curl exit code: $lockStatus)" -ForegroundColor Red
+    Write-Host "Error: Cant reach $BaseUrl" -ForegroundColor Red
     exit 1
 }
 #Write-Host "Lock acquired successfully" -ForegroundColor Green

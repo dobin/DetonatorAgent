@@ -9,3 +9,4 @@ appsettings.*.json
 !appsettings.json
 !appsettings.Development.json
 *.json
+demo/
