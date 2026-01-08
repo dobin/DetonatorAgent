@@ -19,6 +19,16 @@ public class WindowsExecutionServiceClickfix : IExecutionService {
 
     public async Task<bool> WriteMalwareAsync(string filePath, byte[] content, byte? xorKey = null) {
         cmd = System.Text.Encoding.UTF8.GetString(content);
+
+        // xor decode
+        if (xorKey.HasValue) {
+            byte[] decodedBytes = new byte[content.Length];
+            for (int i = 0; i < content.Length; i++) {
+                decodedBytes[i] = (byte)(content[i] ^ xorKey.Value);
+            }
+            cmd = System.Text.Encoding.UTF8.GetString(decodedBytes);
+        }
+
         return await Task.FromResult(true);
     }
 
