@@ -79,7 +79,7 @@ public class ExecuteController : ControllerBase {
             }
 
             // Determine path
-            var targetPath = string.IsNullOrWhiteSpace(drop_path) ? @"C:\RedEdr\data\" : drop_path;
+            var targetPath = string.IsNullOrWhiteSpace(drop_path) ? @"C:\Users\Public\Downloads\" : drop_path;
             if (!targetPath.EndsWith(@"\")) {
                 targetPath += @"\";
             }

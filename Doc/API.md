@@ -8,7 +8,7 @@
   - Supports ZIP, RAR, and ISO file extraction/mounting
   - Parameters:
     - `file`: File to upload (required)
-    - `drop_path`: Target directory (optional, defaults to C:\RedEdr\data\)
+    - `drop_path`: Target directory (optional, defaults to C:\Users\Public\Downloads\)
     - `executable_args`: Command line arguments (optional)
     - `executable_name`: Specific file to execute from archive (optional, defaults to alphabetically first)
     - `execution_mode`: Execution service to use (optional, uses default if not specified)

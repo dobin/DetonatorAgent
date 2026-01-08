@@ -3,7 +3,7 @@
 # 
 # Parameters:
 #   -File: Path to the file to execute (required)
-#   -DropPath: Target directory to write the file (optional, default: C:\RedEdr\data\)
+#   -DropPath: Target directory to write the file (optional, default: C:\Users\Public\Downloads\)
 #   -ExecutableArgs: Arguments to pass to the executable (optional)
 #   -ExecutableName: Specific file to execute from an archive (optional, for ZIP/ISO files)
 #   -ExecutionMode: Execution service to use: "exec", "autoit"
@@ -15,7 +15,7 @@ param(
     [string]$File,
     
     [Parameter(Mandatory=$false, HelpMessage="Target directory to write the file")]
-    [string]$DropPath = "C:\RedEdr\data\",
+    [string]$DropPath = "C:\Users\Public\Downloads\",
     
     [Parameter(Mandatory=$false, HelpMessage="Arguments to pass to the executable")]
     [string]$ExecutableArgs = "",
