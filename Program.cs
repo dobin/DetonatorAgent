@@ -53,18 +53,21 @@ else {
 }
 
 // Register EDR service based on command line argument
-var edrService = args.FirstOrDefault(arg => arg.StartsWith("--edr="))?.Split('=')[1]?.ToLower() ?? "windowsdefender";
+var edrService = args.FirstOrDefault(arg => arg.StartsWith("--edr="))?.Split('=')[1]?.ToLower() ?? "defender";
 
 if (OperatingSystem.IsWindows()) {
     switch (edrService) {
-        case "windowsdefender":
+        case "defender":
             builder.Services.AddSingleton<IEdrService, DefenderEdrPlugin>();
+            break;
+        case "fibratus":
+            builder.Services.AddSingleton<IEdrService, FibratusEdrPlugin>();
             break;
         case "example":
             builder.Services.AddSingleton<IEdrService, ExampleEdrPlugin>();
             break;
         default:
-            Console.WriteLine($"Warning: Unknown EDR service '{edrService}' specified.");
+            Console.WriteLine($"Warning: Unknown EDR service '{edrService}' specified. Use 'defender' or 'fibratus'");
             return;
     }
 }

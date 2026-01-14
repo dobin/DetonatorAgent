@@ -56,6 +56,14 @@ The API will be available at:
 * http://localhost:8080
 
 
+## Supported Local EDR
+
+For `--edr=`
+
+* defender
+* fibratus
+
+
 ## Feature: File Execution
 
 The `/api/execute/exec` API will execute the given file. So the EDR (or AV) can do its thing.

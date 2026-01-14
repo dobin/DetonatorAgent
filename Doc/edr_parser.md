@@ -91,3 +91,142 @@ DetonatorAgent will attempt to parse, and generate:
   "isDetected": true
 }
 
+
+## Plugin: Fibratus
+
+```
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Fibratus" />
+    <EventID Qualifiers="8192">62873</EventID>
+    <Version>0</Version>
+    <Level>4</Level>
+    <Task>0</Task>
+    <Opcode>0</Opcode>
+    <Keywords>0x80000000000000</Keywords>
+    <TimeCreated SystemTime="2026-01-14T04:56:57.8822028Z" />
+    <EventRecordID>134</EventRecordID>
+    <Correlation />
+    <Execution ProcessID="6224" ThreadID="0" />
+    <Channel>Application</Channel>
+    <Computer>DESKTOP-C0HF6MF</Computer>
+    <Security />
+  </System>
+  <EventData>
+    <Data>Credential discovery via VaultCmd tool
+
+Severity: medium
+
+System event involved in this alert:
+
+	Event #1:
+
+		Seq: 2043790
+		Pid: 3216
+		Tid: 3752
+		Name: CreateProcess
+		Category: process
+		Host: DESKTOP-C0HF6MF
+		Timestamp: 2026-01-14 05:56:44.2745223 +0100 CET
+		Parameters: cmdline➜ VaultCmd.exe  /listcreds:"Windows Credentials" /all, directory_table_base➜ 12e078000, domain➜ DESKTOP-C0HF6MF, exe➜ VaultCmd.exe, exit_status➜ Success, flags➜ , kproc➜ ffffb80e0078a080, name➜ VaultCmd.exe, pid➜ 6132, ppid➜ 3216, real_ppid➜ 3216, session_id➜ 2, sid➜ S-1-5-21-937184543-179303868-2836477951-1001, start_time➜ 2026-01-14 05:56:44.2745223 +0100 CET, username➜ hacker
+    
+		Pid:  3216
+		Ppid: 7120
+		Name: cmd.exe
+		Cmdline: "C:\WINDOWS\system32\cmd.exe" 
+		Exe:  C:\Windows\System32\cmd.exe
+		Cwd:  C:\Windows\System32\
+		SID:  S-1-5-21-937184543-179303868-2836477951-1001
+		Username: hacker
+		Domain: DESKTOP-C0HF6MF
+		Args: []
+		Session ID: 2
+		Ancestors: 
+	
+</Data>
+  </EventData>
+</Event>
+```
+
+```
+<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event">
+  <System>
+    <Provider Name="Fibratus" />
+    <EventID Qualifiers="8192">63003</EventID>
+    <Version>0</Version>
+    <Level>4</Level>
+    <Task>0</Task>
+    <Opcode>0</Opcode>
+    <Keywords>0x80000000000000</Keywords>
+    <TimeCreated SystemTime="2026-01-14T04:54:51.7879635Z" />
+    <EventRecordID>128</EventRecordID>
+    <Correlation />
+    <Execution ProcessID="6224" ThreadID="0" />
+    <Channel>Application</Channel>
+    <Computer>DESKTOP-C0HF6MF</Computer>
+    <Security />
+  </System>
+  <EventData>
+    <Data>Suspicious access to the hosts file
+
+Suspicious process C:\Program Files (x86)\Microsoft\EdgeWebView\Application\122.0.2365.106\msedgewebview2.exe accessed the hosts file for potential tampering
+
+
+Severity: medium
+
+System events involved in this alert:
+
+	Event #1:
+
+		Seq: 1748233
+		Pid: 4324
+		Tid: 10840
+		Name: CreateProcess
+		Category: process
+		Host: DESKTOP-C0HF6MF
+		Timestamp: 2026-01-14 05:52:58.8910719 +0100 CET
+		Parameters: cmdline➜ "C:\Program Files (x86)\Microsoft\EdgeWebView\Application\122.0.2365.106\msedgewebview2.exe" --type=utility --utility-sub-type=network.mojom.NetworkService --lang=en-US --service-sandbox-type=none --noerrdialogs --user-data-dir="C:\Users\hacker\AppData\Local\Packages\MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy\LocalState\EBWebView" --webview-exe-name=Widgets.exe --webview-exe-version=424.1301.2770.0 --embedded-browser-webview=1 --no-appcompat-clear --mojo-platform-channel-handle=3048 --field-trial-handle=2312,i,10267031729652099757,6515291680585498514,262144 --enable-features=MojoIpcz,UseBackgroundNativeThreadPool,UseNativeThreadPool,msWebView2TreatAppSuspendAsDeviceSuspend --variations-seed-version /prefetch:3 /pfhostedapp:fba268c25307ce91690b14c38c05f398edcec8c5MicrosoftWindows.Client.WebExperience_424.1301.270.9_x64__cw5n1h2txyewyWidge, directory_table_base➜ 530c7000, domain➜ DESKTOP-C0HF6MF, exe➜ C:\Program Files (x86)\Microsoft\EdgeWebView\Application\122.0.2365.106\msedgewebview2.exe, exit_status➜ Success, flags➜ APPLICATION_ID|PACKAGED, kproc➜ ffffb80e05293080, name➜ msedgewebview2.exe, pid➜ 9076, ppid➜ 4324, real_ppid➜ 4324, session_id➜ 2, sid➜ S-1-5-21-937184543-179303868-2836477951-1001, start_time➜ 2026-01-14 05:52:58.8910344 +0100 CET, username➜ hacker
+    
+		Pid:  4324
+		Ppid: 7292
+		Name: msedgewebview2.exe
+		Cmdline: "C:\Program Files (x86)\Microsoft\EdgeWebView\Application\122.0.2365.106\msedgewebview2.exe" --embedded-browser-webview=1 --webview-exe-name=Widgets.exe --webview-exe-version=424.1301.2770.0 --user-data-dir="C:\Users\hacker\AppData\Local\Packages\MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy\LocalState\EBWebView" --noerrdialogs --disk-cache-size=52428800 --edge-webview-is-background --enable-features=MojoIpcz,msWebView2TreatAppSuspendAsDeviceSuspend,UseNativeThreadPool,UseBackgroundNativeThreadPool --lang=en-US --accept-lang=en-US --mojo-named-platform-channel-pipe=7292.6404.13169143304204931738 /pfhostedapp:fba268c25307ce91690b14c38c05f398edcec8c5
+		Exe:  C:\Program Files (x86)\Microsoft\EdgeWebView\Application\122.0.2365.106\msedgewebview2.exe
+		Cwd:  C:\Program Files (x86)\Microsoft\EdgeWebView\Application\122.0.2365.106\
+		SID:  S-1-5-21-937184543-179303868-2836477951-1001
+		Username: hacker
+		Domain: DESKTOP-C0HF6MF
+		Args: []
+		Session ID: 2
+		Ancestors: 
+	
+	Event #2:
+
+		Seq: 1752844
+		Pid: 9076
+		Tid: 10720
+		Name: CreateFile
+		Category: file
+		Host: DESKTOP-C0HF6MF
+		Timestamp: 2026-01-14 05:52:58.9910983 +0100 CET
+		Parameters: attributes➜ , create_disposition➜ OPEN, create_options➜ OPEN_REPARSE_POINT, file_object➜ ffffb80e091431a0, file_path➜ C:\WINDOWS\system32\drivers\etc\hosts, irp➜ ffffb80e02ba60f8, share_mask➜ READ|WRITE|DELETE, status➜ Success, tid➜ 10720, type➜ Directory
+    
+		Pid:  9076
+		Ppid: 4324
+		Name: msedgewebview2.exe
+		Parent name: msedgewebview2.exe
+		Cmdline: "C:\Program Files (x86)\Microsoft\EdgeWebView\Application\122.0.2365.106\msedgewebview2.exe" --type=utility --utility-sub-type=network.mojom.NetworkService --lang=en-US --service-sandbox-type=none --noerrdialogs --user-data-dir="C:\Users\hacker\AppData\Local\Packages\MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy\LocalState\EBWebView" --webview-exe-name=Widgets.exe --webview-exe-version=424.1301.2770.0 --embedded-browser-webview=1 --no-appcompat-clear --mojo-platform-channel-handle=3048 --field-trial-handle=2312,i,10267031729652099757,6515291680585498514,262144 --enable-features=MojoIpcz,UseBackgroundNativeThreadPool,UseNativeThreadPool,msWebView2TreatAppSuspendAsDeviceSuspend --variations-seed-version /prefetch:3 /pfhostedapp:fba268c25307ce91690b14c38c05f398edcec8c5MicrosoftWindows.Client.WebExperience_424.1301.270.9_x64__cw5n1h2txyewyWidge
+		Parent cmdline: "C:\Program Files (x86)\Microsoft\EdgeWebView\Application\122.0.2365.106\msedgewebview2.exe" --embedded-browser-webview=1 --webview-exe-name=Widgets.exe --webview-exe-version=424.1301.2770.0 --user-data-dir="C:\Users\hacker\AppData\Local\Packages\MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy\LocalState\EBWebView" --noerrdialogs --disk-cache-size=52428800 --edge-webview-is-background --enable-features=MojoIpcz,msWebView2TreatAppSuspendAsDeviceSuspend,UseNativeThreadPool,UseBackgroundNativeThreadPool --lang=en-US --accept-lang=en-US --mojo-named-platform-channel-pipe=7292.6404.13169143304204931738 /pfhostedapp:fba268c25307ce91690b14c38c05f398edcec8c5
+		Exe:  C:\Program Files (x86)\Microsoft\EdgeWebView\Application\122.0.2365.106\msedgewebview2.exe
+		Cwd:  C:\Program Files (x86)\Microsoft\EdgeWebView\Application\122.0.2365.106\
+		SID:  S-1-5-21-937184543-179303868-2836477951-1001
+		Username: hacker
+		Domain: DESKTOP-C0HF6MF
+		Args: ["C:\Program Files (x86)\Microsoft\EdgeWebView\Application\122.0.2365.106\msedgewebview2.exe" --type=utility --utility-sub-type=network.mojom.NetworkService --lang=en-US --service-sandbox-type=none --noerrdialogs --user-data-dir="C:\Users\hacker\AppData\Local\Packages\MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy\LocalState\EBWebView" --webview-exe-name=Widgets.exe --webview-exe-version=424.1301.2770.0 --embedded-browser-webview=1 --no-appcompat-clear --mojo-platform-channel-handle=3048 --field-trial-handle=2312,i,10267031729652099757,6515291680585498514,262144 --enable-features=MojoIpcz,UseBackgroundNativeThreadPool,UseNativeThreadPool,msWebView2TreatAppSuspendAsDeviceSuspend --variations-seed-version /prefetch:3 /pfhostedapp:fba268c25307ce91690b14c38c05f398edcec8c5MicrosoftWindows.Client.WebExperience_424.1301.270.9_x64__cw5n1h2txyewyWidge]
+		Session ID: 2
+		Ancestors: msedgewebview2.exe (4324)
+	
+</Data>
+  </EventData>
+</Event>
+```
