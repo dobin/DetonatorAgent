@@ -88,6 +88,8 @@ loggerFactory.AddProvider(new AgentLoggerProvider(agentLogService));
 
 // Add initial startup log
 agentLogService.AddLog("DetonatorAgent 0.4 - Starting up");
+agentLogService.AddLog($"EDR Plugin: {edrService}");
+
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment()) {
