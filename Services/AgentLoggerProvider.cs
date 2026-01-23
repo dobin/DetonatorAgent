@@ -39,6 +39,9 @@ public class AgentLogger : ILogger {
 
         if (exception != null) {
             logEntry += $" | Exception: {exception.Message}";
+            if (exception.StackTrace != null) {
+                logEntry += $" | StackTrace: {exception.StackTrace}";
+            }
         }
 
         _agentLogService.AddLog(logEntry);

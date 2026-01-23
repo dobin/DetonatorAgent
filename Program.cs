@@ -67,8 +67,8 @@ if (OperatingSystem.IsWindows()) {
             builder.Services.AddSingleton<IEdrService, ExampleEdrPlugin>();
             break;
         default:
-            Console.WriteLine($"Warning: Unknown EDR service '{edrService}' specified. Use 'defender' or 'fibratus'");
-            return;
+            Console.WriteLine($"Unknown EDR service '{edrService}' specified. Use 'defender' or 'fibratus'");
+            return 1;
     }
 }
 else {
@@ -89,7 +89,6 @@ loggerFactory.AddProvider(new AgentLoggerProvider(agentLogService));
 // Add initial startup log
 agentLogService.AddLog("DetonatorAgent 0.4 - Starting up");
 agentLogService.AddLog($"EDR Plugin: {edrService}");
-
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment()) {
