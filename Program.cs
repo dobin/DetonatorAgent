@@ -87,7 +87,7 @@ var loggerFactory = app.Services.GetRequiredService<ILoggerFactory>();
 loggerFactory.AddProvider(new AgentLoggerProvider(agentLogService));
 
 // Add initial startup log
-agentLogService.AddLog("DetonatorAgent 0.4 - Starting up");
+agentLogService.AddLog("DetonatorAgent - Starting up");
 agentLogService.AddLog($"EDR Plugin: {edrService}");
 
 // Configure the HTTP request pipeline.
@@ -100,4 +100,24 @@ app.UseHttpsRedirection();
 app.UseAuthorization();
 app.MapControllers();
 
-app.Run();
+// Add lifetime events for logging
+var lifetime = app.Services.GetRequiredService<IHostApplicationLifetime>();
+lifetime.ApplicationStopping.Register(() =>
+{
+    agentLogService.AddLog("DetonatorAgent - Shutting down");
+});
+
+try
+{
+    agentLogService.AddLog("DetonatorAgent - Running");
+    await app.RunAsync();
+    agentLogService.AddLog("DetonatorAgent - Stopped normally");
+    return 0;
+}
+catch (Exception ex)
+{
+    agentLogService.AddLog($"DetonatorAgent - FATAL ERROR: {ex.GetType().Name}: {ex.Message}");
+    agentLogService.AddLog($"Stack trace: {ex.StackTrace}");
+    Console.WriteLine($"Fatal error: {ex}");
+    return 1;
+}
