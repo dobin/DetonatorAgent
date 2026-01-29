@@ -13,7 +13,6 @@ DetonatorAgent fulfills two purposes:
 It is mainly used to see if initial access chains are undetected for RedTeam engagements.
 So if your malware is detected (and if yes, why), or not.
 
-It serves more as inspiration on how to implement this yourselves than a polished product.
 It is closely related to [RedEdr](https://github.com/dobin/RedEdr), which collects the same
 telemetry as an EDR does. And can be used with [Detonator](https://github.com/dobin/Detonator)
 to more reliably detonate MalDev, as shown in [detonator.r00ted.ch](https://detonator.r00ted.ch).
@@ -37,6 +36,24 @@ title                      severity category
 -----                      -------- --------
 HackTool:Win32/Mimikatz!pz High     Tool    
 ```
+
+## Functionality
+
+DetonatorAgent only does: 
+1) Write the exectuable file to disk
+2) Executes it
+3) Grabs EDR logs (either way if execution successful or not)
+
+DetonatorAgent does not influence (configure, modify, change...) 
+the AV, EDR or Windows in any way. 
+
+If the Antivirus component of the EDR detects the file when
+dropped on disk (as we see above with mimikatz), 
+the file got categorized as virus and removed by the AV. 
+No execution can be performed. The EDR logs will still be grabbed. 
+To be able to execute a statically detected file, 
+either create a whitelisted directory and use `drop_path`, or 
+patch mimikatz so static analysis doesnt detect it anymore. 
 
 
 ## Installation
