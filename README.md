@@ -62,7 +62,6 @@ Install:
 * .NET 8.0 SDK
 * Asp.Net
 
-
 If you use Defender or MDE:
 
 ```powershell
@@ -71,6 +70,8 @@ dotnet run -- --edr=defender
 
 The API will be available at:
 * http://localhost:8080
+
+Start it as user (no high privileges required). 
 
 
 ## Supported Local EDR
