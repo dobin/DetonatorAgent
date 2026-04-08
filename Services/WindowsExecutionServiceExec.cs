@@ -7,6 +7,7 @@ namespace DetonatorAgent.Services;
 
 public class WindowsExecutionServiceExec : IExecutionService {
     private readonly ILogger<IExecutionService> _logger;
+    private readonly IEdrService? _edrService;
     private string _executableFilePath = "";
     public string ExecutionTypeName => "exec";
 
@@ -16,9 +17,11 @@ public class WindowsExecutionServiceExec : IExecutionService {
     private string _lastStderr = string.Empty;
     private Process? _lastProcess = null;
     private List<string> _cleanupFiles = new List<string>();
+    private readonly object _processLock = new object();
 
-    public WindowsExecutionServiceExec(ILogger<IExecutionService> logger) {
+    public WindowsExecutionServiceExec(ILogger<IExecutionService> logger, IEdrService? edrService = null) {
         _logger = logger;
+        _edrService = edrService;
     }
 
     public async Task<bool> WriteMalwareAsync(string filePath, byte[] content, byte? xorKey = null) {
@@ -153,10 +156,12 @@ public class WindowsExecutionServiceExec : IExecutionService {
             else {
                 pid = process.Id;
             }
-            _lastProcessId = pid;
-            _lastProcess = process;
-            _lastStdout = string.Empty;
-            _lastStderr = string.Empty;
+            lock (_processLock) {
+                _lastProcessId = pid;
+                _lastProcess = process;
+                _lastStdout = string.Empty;
+                _lastStderr = string.Empty;
+            }
             _logger.LogInformation("Process started successfully with PID: {Pid}", pid);
 
             // For non-DLL executions, capture stdout/stderr
@@ -169,11 +174,17 @@ public class WindowsExecutionServiceExec : IExecutionService {
 
                         await process.WaitForExitAsync();
 
-                        _lastStdout = await stdoutTask;
-                        _lastStderr = await stderrTask;
+                        var stdout = await stdoutTask;
+                        var stderr = await stderrTask;
+
+                        lock (_processLock) {
+                            _lastStdout = stdout;
+                            _lastStderr = stderr;
+                        }
 
                         _logger.LogInformation("Process {Pid} completed. Stdout length: {StdoutLen}, Stderr length: {StderrLen}", 
-                            pid, _lastStdout.Length, _lastStderr.Length);
+                            pid, stdout.Length, stderr.Length);
+                        _edrService?.StopCollection();
                     }
                     catch (Exception ex) {
                         _logger.LogError(ex, "Error waiting for process {Pid}", pid);
@@ -186,6 +197,7 @@ public class WindowsExecutionServiceExec : IExecutionService {
                     try {
                         await process.WaitForExitAsync();
                         _logger.LogInformation("Process {Pid} completed.", pid);
+                        _edrService?.StopCollection();
                     }
                     catch (Exception ex) {
                         _logger.LogError(ex, "Error waiting for process {Pid}", pid);
@@ -214,17 +226,21 @@ public class WindowsExecutionServiceExec : IExecutionService {
     }
 
     public async Task<(bool Success, string? ErrorMessage)> KillLastExecutionAsync() {
+        bool killOk = true;
+        string? killErr = null;
+
         try {
             Process? processToKill = null;
             int pidToKill = 0;
 
-            if (_lastProcessId == 0 || _lastProcessId == -1) {
-                _logger.LogWarning("No process to kill - no last execution found");
-                return (true, "No process to kill - no last execution found");
+            lock (_processLock) {
+                if (_lastProcessId == 0 || _lastProcessId == -1) {
+                    _logger.LogWarning("No process to kill - no last execution found");
+                    return (true, "No process to kill - no last execution found");
+                }
+                pidToKill = _lastProcessId;
+                processToKill = _lastProcess;
             }
-
-            pidToKill = _lastProcessId;
-            processToKill = _lastProcess;
 
             _logger.LogInformation("Attempting to kill process with PID: {Pid}", pidToKill);
 
@@ -243,29 +259,27 @@ public class WindowsExecutionServiceExec : IExecutionService {
                     _logger.LogInformation("Successfully killed process with PID: {Pid} using process ID", pidToKill);
                 }
 
-                _lastProcess?.Dispose();
-                _lastProcess = null;
-
+                lock (_processLock) {
+                    _lastProcess?.Dispose();
+                    _lastProcess = null;
+                }
             }
             catch (ArgumentException) {
                 _logger.LogWarning("Process with PID {Pid} not found - may have already exited", pidToKill);
-
-                _lastProcess?.Dispose();
-                _lastProcess = null;
+                lock (_processLock) { _lastProcess?.Dispose(); _lastProcess = null; }
             }
             catch (InvalidOperationException) {
                 _logger.LogWarning("Process with PID {Pid} has already exited", pidToKill);
-
-                _lastProcess?.Dispose();
-                _lastProcess = null;
+                lock (_processLock) { _lastProcess?.Dispose(); _lastProcess = null; }
             }
         }
         catch (Exception ex) {
             _logger.LogError(ex, "Error killing process with PID: {Pid}", _lastProcessId);
+            killOk = false;
+            killErr = ex.Message;
         }
 
-        // Clean up tracked files
-        // Sleep briefly to ensure files are not in use
+        // Clean up tracked files regardless of kill result
         await Task.Delay(500);
 
         foreach (var fileToDelete in _cleanupFiles) {
@@ -281,13 +295,15 @@ public class WindowsExecutionServiceExec : IExecutionService {
         }
         _cleanupFiles.Clear();
 
-        return (true, "Cleanup done");
+        return (killOk, killOk ? "Cleanup done" : killErr);
     }
 
     public async Task<(int Pid, string Stdout, string Stderr)> GetExecutionLogsAsync() {
-        await Task.CompletedTask; // For consistency with async pattern
+        await Task.CompletedTask;
 
-        return (_lastProcessId, _lastStdout, _lastStderr);
+        lock (_processLock) {
+            return (_lastProcessId, _lastStdout, _lastStderr);
+        }
     }
 
     private string? FindExecutableFile(string searchPath, string? executable_name) {

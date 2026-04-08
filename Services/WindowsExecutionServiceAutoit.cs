@@ -9,6 +9,7 @@ namespace DetonatorAgent.Services;
 [SupportedOSPlatform("windows")]
 public class WindowsExecutionServiceAutoit : IExecutionService {
     private readonly ILogger<IExecutionService> _logger;
+    private readonly IEdrService? _edrService;
     private readonly object _processLock = new object();
     private string _executableFilePath = "";
 
@@ -27,8 +28,9 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
 
     public string ExecutionTypeName => "autoit";
 
-    public WindowsExecutionServiceAutoit(ILogger<IExecutionService> logger) {
+    public WindowsExecutionServiceAutoit(ILogger<IExecutionService> logger, IEdrService? edrService = null) {
         _logger = logger;
+        _edrService = edrService;
     }
 
     
@@ -215,6 +217,7 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
 
                     var completedPid = (int)pid;
                     _logger.LogInformation("Process {Pid} completed (AutoIt Explorer)", completedPid);
+                    _edrService?.StopCollection();
                 }
                 catch (Exception ex) {
                     var errorPid = (int)pid;
@@ -594,18 +597,20 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
                     try {
                         _logger.LogInformation("Unmounting ISO file: {IsoPath}", mountedIsoPath);
 
-                        // Use AutoIt to run PowerShell command to dismount the ISO
-                        var dismountCmd = $"powershell.exe -Command \"Dismount-DiskImage -ImagePath '{mountedIsoPath}'\"";
-                        int dismountPid = AutoItX.Run(dismountCmd, "", SW_HIDE);
-                        
-                        if (dismountPid > 0) {
-                            // Wait for dismount command to complete
-                            while (AutoItX.ProcessExists(dismountPid.ToString()) == 1) {
-                                await Task.Delay(100);
-                            }
+                        // Build encoded command to prevent PowerShell injection
+                        var script = $"Dismount-DiskImage -ImagePath '{mountedIsoPath.Replace("'", "''")}'";
+                        var encoded = Convert.ToBase64String(System.Text.Encoding.Unicode.GetBytes(script));
+                        var dismountInfo = new System.Diagnostics.ProcessStartInfo {
+                            FileName = "powershell.exe",
+                            Arguments = $"-NoProfile -NonInteractive -EncodedCommand {encoded}",
+                            UseShellExecute = false,
+                            CreateNoWindow = true
+                        };
+                        using var dismountProcess = System.Diagnostics.Process.Start(dismountInfo);
+                        if (dismountProcess != null) {
+                            await dismountProcess.WaitForExitAsync();
                             _logger.LogInformation("Successfully unmounted ISO file");
-                        }
-                        else {
+                        } else {
                             _logger.LogWarning("Failed to start ISO unmount command");
                         }
                     }

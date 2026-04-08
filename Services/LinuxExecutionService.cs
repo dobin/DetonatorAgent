@@ -104,6 +104,7 @@ public class LinuxExecutionService : IExecutionService {
 
                     _logger.LogInformation("Process {Pid} completed. Stdout length: {StdoutLength}, Stderr length: {StderrLength}",
                         pid, stdout.Length, stderr.Length);
+                    _edrService.StopCollection();
                 }
                 catch (Exception ex) {
                     _logger.LogError(ex, "Error collecting output from process {Pid}", pid);

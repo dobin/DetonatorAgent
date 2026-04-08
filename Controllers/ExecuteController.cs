@@ -39,18 +39,17 @@ public class ExecuteController : ControllerBase {
             // This will track all execution & artefacts
             IExecutionService executionService;
             if (execution_mode == "exec") {
-                executionService = new WindowsExecutionServiceExec(_executionLogger);
+                executionService = new WindowsExecutionServiceExec(_executionLogger, _edrService);
             } else if (execution_mode == "autoit") {
-                executionService = new WindowsExecutionServiceAutoit(_executionLogger);
+                executionService = new WindowsExecutionServiceAutoit(_executionLogger, _edrService);
             } else if (execution_mode == "clickfix") {
                 executionService = new WindowsExecutionServiceClickfix(_executionLogger);
             } else {
                 // Use "exec" as default execution mode
-                executionService = new WindowsExecutionServiceExec(_executionLogger);
+                executionService = new WindowsExecutionServiceExec(_executionLogger, _edrService);
                 _logger.LogInformation("Exec: No execution_mode provided, defaulting to 'exec'");
             }
             
-            _executionTracking.SetLastExecutionService(executionService);
             _logger.LogInformation("Exec: Using execution type: {ExecutionType}", execution_mode);
 
             // Validate xor_key parameter
@@ -126,6 +125,7 @@ public class ExecuteController : ControllerBase {
                 });
             } else {
                 _logger.LogInformation("Exec: Malware executed successfully with PID: {Pid}", pid);
+                _executionTracking.SetLastExecutionService(executionService);
             }
 
             return Ok(new ExecuteFileResponse {
