@@ -150,8 +150,11 @@ public class FibratusEdrPlugin : IEdrService {
                 return "Unknown";
             }
 
-            string output = process.StandardOutput.ReadToEnd();
+            var stdoutTask = process.StandardOutput.ReadToEndAsync();
+            var stderrTask = process.StandardError.ReadToEndAsync();
+            Task.WhenAll(stdoutTask, stderrTask).GetAwaiter().GetResult();
             process.WaitForExit();
+            string output = stdoutTask.Result;
 
             if (process.ExitCode != 0) {
                 _logger.LogWarning("Fibratus Plugin: fibratus.exe exited with code {ExitCode}", process.ExitCode);

@@ -22,7 +22,12 @@ builder.Logging.AddSimpleConsole(options =>
 var portArg = args.FirstOrDefault(arg => arg.StartsWith("--port="))?.Split('=')[1];
 if (!string.IsNullOrEmpty(portArg))
 {
-    builder.WebHost.UseUrls($"http://0.0.0.0:{portArg}");
+    if (!int.TryParse(portArg, out int port) || port < 1 || port > 65535)
+    {
+        Console.WriteLine($"Invalid --port value '{portArg}'. Must be an integer between 1 and 65535.");
+        return 1;
+    }
+    builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 }
 
 // Add services to the container.
@@ -96,7 +101,6 @@ if (app.Environment.IsDevelopment()) {
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
 app.UseAuthorization();
 app.MapControllers();
 

@@ -123,18 +123,24 @@ public class DefenderEdrPlugin : IEdrService {
 
     
     public string GetEdrVersion() {
-        var scope = new ManagementScope(@"\\.\root\Microsoft\Windows\Defender");
-        var query = new ObjectQuery("SELECT * FROM MSFT_MpComputerStatus");
+        try {
+            var scope = new ManagementScope(@"\\.\root\Microsoft\Windows\Defender");
+            var query = new ObjectQuery("SELECT * FROM MSFT_MpComputerStatus");
 
-        using var searcher = new ManagementObjectSearcher(scope, query);
-        foreach (ManagementObject obj in searcher.Get())
-        {
-            return (
-                obj["AMProductVersion"]?.ToString() + " - " + obj["AntivirusSignatureVersion"]?.ToString()
-            );
+            using var searcher = new ManagementObjectSearcher(scope, query);
+            foreach (ManagementObject obj in searcher.Get())
+            {
+                return (
+                    obj["AMProductVersion"]?.ToString() + " - " + obj["AntivirusSignatureVersion"]?.ToString()
+                );
+            }
+
+            return "Unknown";
         }
-
-        return "Unknown";
+        catch (Exception ex) {
+            _logger.LogWarning(ex, "Defender Plugin: Failed to retrieve EDR version");
+            return "Unknown";
+        }
     }
 
     private EdrAlertsResponse ParseDefenderEvents(string edrData)
