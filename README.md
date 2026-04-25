@@ -82,6 +82,23 @@ For `--edr=`
 * fibratus
 
 
+### EDR: Defender
+
+Works out of the box. 
+
+
+### EDR: Fibratus
+
+Configure event logs to use `json` instead of `pretty`:
+
+File `%PROGRAMFILES%\Fibratus\Config\fibratus.yml`:
+```
+alertsenders:
+  eventlog:
+    format: json
+```
+
+
 ## Feature: File Execution
 
 The `/api/execute/exec` API will execute the given file. So the EDR (or AV) can do its thing.
