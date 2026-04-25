@@ -6,7 +6,7 @@ Write-Output "build..."
 dotnet build --configuration Release
 
 # cleanup
-$source = "bin\Release\net8.0\*"
+$sourceDir = "bin\Release\net8.0"
 $destination = "$env:TEMP\detonatoragent.zip"
 
 if (Test-Path $destination) {
@@ -14,9 +14,9 @@ if (Test-Path $destination) {
   Get-ChildItem $destination | Remove-Item -Force -ErrorAction SilentlyContinue
 }
 
-# make a zip
-Write-Output "zip: $source to $destination"
-Compress-Archive -Path $source -DestinationPath $destination -Force
+# make a zip (exclude logs directory)
+Write-Output "zip: $sourceDir to $destination (excluding logs/)"
+Get-ChildItem -Path $sourceDir -Exclude "logs" | Compress-Archive -DestinationPath $destination -Force
 
 # Upload zip as blob
 Write-Output "upload: $destination"

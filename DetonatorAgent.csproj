@@ -21,4 +21,11 @@
     </Reference>
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Remove="azure_config.json" />
+    <None Include="azure_config.json">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>
