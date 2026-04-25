@@ -235,61 +235,83 @@ public class FibratusEdrPlugin : IEdrService {
             foreach (var xmlEvent in events)
             {
                 var parsedEvent = ParseWindowsEvent(xmlEvent);
-                
+
                 // Check if EventData exists
-                if (!parsedEvent.TryGetValue("EventData", out var eventDataObj) || 
+                if (!parsedEvent.TryGetValue("EventData", out var eventDataObj) ||
                     eventDataObj is not Dictionary<string, string> eventData ||
                     !eventData.ContainsKey("Data"))
                 {
+                    _logger.LogDebug("Fibratus Plugin: Skipping event with no EventData/Data field");
                     continue;
                 }
 
-                // Get the full data text from Fibratus event
                 string dataText = eventData["Data"];
-                
-                // Fibratus alerts typically contain "Severity:" in the event data
-                // or start with phrases like "Suspicious" or "Credential discovery"
-                if (!dataText.Contains("Severity:", StringComparison.OrdinalIgnoreCase))
+
+                // Fibratus now emits JSON alert payloads; skip non-JSON entries
+                JsonDocument jsonDoc;
+                try
                 {
-                    // Not a Fibratus alert event
+                    jsonDoc = JsonDocument.Parse(dataText);
+                }
+                catch (JsonException ex)
+                {
+                    _logger.LogError(ex, "Fibratus Plugin: Failed to parse event data as JSON. Data: {DataText}",
+                        dataText.Length > 200 ? dataText.Substring(0, 200) + "..." : dataText);
                     continue;
                 }
 
-                // Extract alert title (first line or sentence before "Severity:")
-                string threatName = "Unknown";
-                int severityIndex = dataText.IndexOf("Severity:", StringComparison.OrdinalIgnoreCase);
-                if (severityIndex > 0)
+                using (jsonDoc)
                 {
-                    threatName = dataText.Substring(0, severityIndex).Trim();
-                    // If there's a newline or description, take only the first part
-                    int newlineIndex = threatName.IndexOf('\n');
-                    if (newlineIndex > 0)
+                    var root = jsonDoc.RootElement;
+
+                    // Must have a "title" field to be considered an alert
+                    if (!root.TryGetProperty("title", out var titleProp))
                     {
-                        threatName = threatName.Substring(0, newlineIndex).Trim();
+                        _logger.LogDebug("Fibratus Plugin: Skipping JSON event with no 'title' field");
+                        continue;
                     }
-                }
-                else if (dataText.StartsWith("Suspicious", StringComparison.OrdinalIgnoreCase))
-                {
-                    // Take the first line for suspicious alerts
-                    int newlineIndex = dataText.IndexOf('\n');
-                    threatName = newlineIndex > 0 ? dataText.Substring(0, newlineIndex).Trim() : dataText;
-                }
 
-                // Extract severity
-                string severityName = "Unknown";
-                var severityMatch = System.Text.RegularExpressions.Regex.Match(dataText, @"Severity:\s*(\w+)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-                if (severityMatch.Success)
-                {
-                    severityName = severityMatch.Groups[1].Value;
-                }
+                    string alertId = root.TryGetProperty("id", out var idProp)
+                        ? idProp.GetString() ?? "Unknown" : "Unknown";
+                    string title = titleProp.GetString() ?? "Unknown";
+                    string severity = root.TryGetProperty("severity", out var severityProp)
+                        ? severityProp.GetString() ?? "Unknown" : "Unknown";
 
-                // Extract detection time from System/TimeCreated
-                DateTime? detectionTime = null;
-                if (parsedEvent.TryGetValue("System", out var systemObj) && 
-                    systemObj is Dictionary<string, object> systemData &&
-                    systemData.TryGetValue("TimeCreated", out var timeCreatedObj))
-                {
-                    if (timeCreatedObj is Dictionary<string, object> timeCreated &&
+                    // Extract category and timestamp from the first event entry
+                    string category = "Unknown";
+                    DateTime? detectionTime = null;
+                    if (root.TryGetProperty("events", out var eventsProp) &&
+                        eventsProp.ValueKind == JsonValueKind.Array &&
+                        eventsProp.GetArrayLength() > 0)
+                    {
+                        var firstEvent = eventsProp[0];
+                        if (firstEvent.TryGetProperty("category", out var categoryProp))
+                            category = categoryProp.GetString() ?? "Unknown";
+
+                        if (firstEvent.TryGetProperty("timestamp", out var tsProp))
+                        {
+                            string? tsStr = tsProp.GetString();
+                            if (tsStr != null)
+                            {
+                                try
+                                {
+                                    detectionTime = DateTime.Parse(tsStr, null, System.Globalization.DateTimeStyles.RoundtripKind);
+                                }
+                                catch (Exception ex)
+                                {
+                                    _logger.LogWarning("Fibratus Plugin: Failed to parse detection time '{DetectionTime}': {Error}",
+                                        tsStr, ex.Message);
+                                }
+                            }
+                        }
+                    }
+
+                    // Fallback to Windows Event Log SystemTime when no timestamp in JSON
+                    if (detectionTime == null &&
+                        parsedEvent.TryGetValue("System", out var systemObj) &&
+                        systemObj is Dictionary<string, object> systemData &&
+                        systemData.TryGetValue("TimeCreated", out var timeCreatedObj) &&
+                        timeCreatedObj is Dictionary<string, object> timeCreated &&
                         timeCreated.TryGetValue("SystemTime", out var systemTimeObj) &&
                         systemTimeObj is string systemTimeStr)
                     {
@@ -299,52 +321,39 @@ public class FibratusEdrPlugin : IEdrService {
                         }
                         catch (Exception ex)
                         {
-                            _logger.LogWarning("Fibratus Plugin: Failed to parse detection time '{DetectionTime}': {Error}", 
+                            _logger.LogWarning("Fibratus Plugin: Failed to parse detection time '{DetectionTime}': {Error}",
                                 systemTimeStr, ex.Message);
                         }
                     }
+
+                    // Collect MITRE labels as additional data
+                    var additionalData = new Dictionary<string, object>();
+                    if (root.TryGetProperty("labels", out var labelsProp) &&
+                        labelsProp.ValueKind == JsonValueKind.Object)
+                    {
+                        foreach (var label in labelsProp.EnumerateObject())
+                            additionalData[label.Name] = label.Value.GetString() ?? string.Empty;
+                    }
+
+                    var alert = new SubmissionAlert
+                    {
+                        Source = "Fibratus",
+                        Raw = dataText,
+                        AlertId = alertId,
+                        Title = title,
+                        Severity = severity,
+                        Category = category,
+                        DetectionSource = "Fibratus",
+                        DetectedAt = detectionTime,
+                        AdditionalData = additionalData
+                    };
+
+                    response.Alerts.Add(alert);
                 }
-
-                // Extract detection ID from EventRecordID
-                string detectionId = "Unknown";
-                if (parsedEvent.TryGetValue("System", out var systemObj2) && 
-                    systemObj2 is Dictionary<string, object> systemData2 &&
-                    systemData2.TryGetValue("EventRecordID", out var recordIdObj))
-                {
-                    detectionId = recordIdObj.ToString() ?? "Unknown";
-                }
-
-                // Extract category from the event data (look for "Category: process" etc.)
-                string categoryName = "Unknown";
-                var categoryMatch = System.Text.RegularExpressions.Regex.Match(dataText, @"Category:\s*(\w+)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-                if (categoryMatch.Success)
-                {
-                    categoryName = categoryMatch.Groups[1].Value;
-                }
-
-                string sourceName = "Fibratus";
-
-                var alert = new SubmissionAlert
-                {
-                    Source = "Fibratus",
-                    Raw = dataText,
-                    AlertId = detectionId,
-                    Title = threatName,
-                    Severity = severityName,
-                    Category = categoryName,
-                    DetectionSource = sourceName,
-                    DetectedAt = detectionTime,
-                    AdditionalData = new Dictionary<string, object>()
-                };
-
-                response.Alerts.Add(alert);
             }
 
-            // Determine if detected
             if (response.Alerts.Count > 0)
-            {
                 response.Detected = true;
-            }
 
             response.Success = true;
             _logger.LogInformation("Fibratus Plugin: Successfully parsed {AlertCount} alerts", response.Alerts.Count);
