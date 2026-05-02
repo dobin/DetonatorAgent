@@ -288,16 +288,29 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
 
         // Try to find the PID of the started process using .NET Process class
         var processName = Path.GetFileNameWithoutExtension(filePath);
-        
+
         try {
-            var processes = System.Diagnostics.Process.GetProcessesByName(processName);
-            if (processes.Length > 0) {
-                // Get the most recently started process
-                var newestProcess = processes.OrderByDescending(p => p.StartTime).FirstOrDefault();
-                if (newestProcess != null) {
-                    int foundPid = newestProcess.Id;
-                    _logger.LogInformation("Found started process {ProcessName} with PID: {Pid}", processName, foundPid);
-                    return foundPid;
+            for (int attempt = 0; attempt < 3; attempt++) {
+                var processes = System.Diagnostics.Process.GetProcessesByName(processName);
+                if (processes.Length > 0) {
+                    // Check all processes, prioritizing newer ones
+                    var sortedProcesses = processes.OrderByDescending(p => p.StartTime).ToList();
+
+                    foreach (var process in sortedProcesses) {
+                        try {
+                            int foundPid = process.Id;
+                            _logger.LogInformation("Found started process {ProcessName} with PID: {Pid} (attempt {Attempt}/3)", processName, foundPid, attempt + 1);
+                            return foundPid;
+                        }
+                        catch (Exception ex) {
+                            _logger.LogWarning(ex, "Error accessing process {ProcessName}", processName);
+                        }
+                    }
+                }
+
+                if (attempt < 2) {
+                    _logger.LogInformation("Process {ProcessName} not found yet, retrying (attempt {Attempt}/3)", processName, attempt + 1);
+                    await Task.Delay(500);
                 }
             }
         }
