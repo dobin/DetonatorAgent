@@ -14,7 +14,7 @@ public interface IExecutionService {
     /// </summary>
     string ExecutionTypeName { get; }
 
-    Task<bool> WriteMalwareAsync(string filePath, byte[] content, byte? xorKey = null);
+    Task<bool> WriteFileAsync(string filePath, byte[] content, byte? xorKey = null);
     Task<(bool Success, int Pid, string? ErrorMessage)> StartProcessAsync(string? arguments = null);
     Task<(bool Success, string? ErrorMessage)> KillLastExecutionAsync();
     Task<(int Pid, string Stdout, string Stderr)> GetExecutionLogsAsync();

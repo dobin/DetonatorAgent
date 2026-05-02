@@ -24,7 +24,7 @@ public class WindowsExecutionServiceExec : IExecutionService {
         _edrService = edrService;
     }
 
-    public async Task<bool> WriteMalwareAsync(string filePath, byte[] content, byte? xorKey = null) {
+    public async Task<bool> WriteFileAsync(string filePath, byte[] content, byte? xorKey = null) {
         // Write the give file to the filesystem
         // - with optional XOR decoding
         // - to the given filePath

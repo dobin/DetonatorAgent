@@ -99,7 +99,7 @@ public class ExecuteController : ControllerBase {
 
             // Write the file
             _logger.LogInformation("Exec: Writing file: {FilePath}", filePath);
-            if (!await executionService.WriteMalwareAsync(filePath, fileContent, xorKeyByte)) {
+            if (!await executionService.WriteFileAsync(filePath, fileContent, xorKeyByte)) {
                 _logger.LogError("Exec: Failed to write file to {FilePath}", filePath);
                 return StatusCode(500, new ExecuteFileResponse {
                     Status = "error",

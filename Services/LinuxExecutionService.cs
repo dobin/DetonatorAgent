@@ -20,7 +20,7 @@ public class LinuxExecutionService : IExecutionService {
         _edrService = edrService;
     }
 
-    public async Task<bool> WriteMalwareAsync(string filePath, byte[] content, byte? xorKey = null) {
+    public async Task<bool> WriteFileAsync(string filePath, byte[] content, byte? xorKey = null) {
         try {
             _logger.LogInformation("Writing malware to: {FilePath}", filePath);
 
