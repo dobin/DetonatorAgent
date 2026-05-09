@@ -473,6 +473,18 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
             }
         }
 
+        // Delete the dropped file
+        if (!string.IsNullOrEmpty(droppedFilePath) && File.Exists(droppedFilePath)) {
+            try {
+                _logger.LogInformation("Deleting dropped file: {FilePath}", droppedFilePath);
+                File.Delete(droppedFilePath);
+                _logger.LogInformation("Successfully deleted dropped file");
+            }
+            catch (Exception ex) {
+                _logger.LogError(ex, "Failed to delete dropped file: {FilePath}", droppedFilePath);
+            }
+        }
+
         // Unmount ISO if exists
         if (!string.IsNullOrEmpty(_lastMountedIsoPath) && File.Exists(_lastMountedIsoPath)) {
             try {
