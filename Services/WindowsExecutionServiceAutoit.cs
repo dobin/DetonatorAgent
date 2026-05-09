@@ -132,16 +132,28 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
             return 0;
         }
 
-        // Open explorer with the file selected
-        var explorerArgs = $"/select,\"{filePath}\"";
-        int explorerPid = AutoItX.Run($"explorer.exe {explorerArgs}", directory, SW_SHOW);
-
-        if (explorerPid == 0) {
-            _logger.LogError("Failed to open explorer.exe");
-            return 0;
-        }
-
-        _logger.LogInformation("Explorer opened with PID: {Pid}", explorerPid);
+        // Open Explorer using Win+E shortcut, then navigate to the directory
+        _logger.LogInformation("Opening Explorer using Win+E shortcut");
+        AutoItX.Send("#e"); // Win+E to open Explorer
+        
+        await Task.Delay(1000); // Wait for Explorer to open
+        
+        // Navigate to the directory by typing the path in the address bar
+        _logger.LogInformation("Navigating to directory: {Directory}", directory);
+        AutoItX.Send("!d"); // Alt+D to focus address bar
+        await Task.Delay(250);
+        AutoItX.Send(directory); // Type the directory path
+        await Task.Delay(500);
+        AutoItX.Send("{ENTER}"); // Press Enter to navigate
+        
+        await Task.Delay(250); // Wait for navigation to complete
+        
+        // Select the file by typing its name
+        _logger.LogInformation("Selecting file: {FileName}", fileName);
+        AutoItX.Send(fileName); // Type filename to select it
+        await Task.Delay(500);
+        
+        _logger.LogInformation("Explorer opened and navigated to file location");
 
         // Wait for explorer window to appear
         await Task.Delay(500);
@@ -222,16 +234,29 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
             return 0;
         }
 
-        // Open explorer with the archive/ISO file selected
-        var explorerArgs = $"/select,\"{filePath}\"";
-        int explorerPid = AutoItX.Run($"explorer.exe {explorerArgs}", directory, SW_SHOW);
-
-        if (explorerPid == 0) {
-            _logger.LogError("Failed to open explorer.exe");
-            return 0;
-        }
-
-        _logger.LogInformation("Explorer opened with PID: {Pid}", explorerPid);
+        // Open Explorer using Win+E shortcut, then navigate to the directory
+        _logger.LogInformation("Opening Explorer using Win+E shortcut");
+        AutoItX.Send("#e"); // Win+E to open Explorer
+        
+        await Task.Delay(1000); // Wait for Explorer to open
+        
+        // Navigate to the directory by typing the path in the address bar
+        _logger.LogInformation("Navigating to directory: {Directory}", directory);
+        AutoItX.Send("!d"); // Alt+D to focus address bar
+        await Task.Delay(300);
+        AutoItX.Send(directory); // Type the directory path
+        await Task.Delay(300);
+        AutoItX.Send("{ENTER}"); // Press Enter to navigate
+        
+        await Task.Delay(1000); // Wait for navigation to complete
+        
+        // Select the archive/ISO file by typing its name
+        _logger.LogInformation("Selecting file: {FileName}", fileName);
+        AutoItX.Send(fileName); // Type filename to select it
+        await Task.Delay(500);
+        
+        int explorerPid = 0; // We don't have a direct PID from this method
+        _logger.LogInformation("Explorer opened and navigated to archive/ISO location");
 
         // Wait for explorer window to appear
         await Task.Delay(500);
