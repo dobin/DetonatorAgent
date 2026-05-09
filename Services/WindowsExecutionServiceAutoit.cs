@@ -15,7 +15,7 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
     // Tracking
     private string droppedFilePath = "";
     private int _lastProcessId = 0;
-    private string? _lastExplorerWindowTitle = null; // currently "data" for c:\rededr\data directory
+    private nint _lastExplorerWindowHandle = 0; // Track Explorer window handle for reliable cleanup
     private string _lastStdout = string.Empty;
     private string _lastStderr = string.Empty;
     private string? _lastExtractionPath = null; // .ZIP
@@ -58,7 +58,7 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
 
     public async Task<(bool Success, int Pid, string? ErrorMessage)> StartProcessAsync(string? arguments = null) {
         _lastProcessId = 0;
-        _lastExplorerWindowTitle = null;
+        _lastExplorerWindowHandle = 0;
         _lastStdout = string.Empty;
         _lastStderr = string.Empty;
         _lastExtractionPath = null;
@@ -146,18 +146,28 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
         // Wait for explorer window to appear
         await Task.Delay(500);
 
-        // Wait for the Explorer window to be active (using the directory name as window title)
-        AutoItX.WinWait(directory, "", 5);
-        AutoItX.WinActivate(directory);
-        await Task.Delay(500);
-
-        // Store the folder name (not full path) as the window title for later cleanup
-        // Explorer window titles show only the folder name, not the full path
-        var folderName = Path.GetFileName(directory);
-        lock (_processLock) {
-            _lastExplorerWindowTitle = folderName;
+        // Get the active window handle (the Explorer window that just opened)
+        // Use [ACTIVE] to get the currently active window
+        nint activeWindowHandle = AutoItX.WinGetHandle("[ACTIVE]");
+        if (activeWindowHandle == 0) {
+            _logger.LogWarning("Could not get active window handle, trying by class");
+            // Fallback: try to find the most recent Explorer window by class
+            activeWindowHandle = AutoItX.WinGetHandle("[CLASS:CabinetWClass]");
         }
-        _logger.LogInformation("Stored Explorer window title for cleanup: {WindowTitle} (from path: {FullPath})", folderName, directory);
+        // Check again
+        if (activeWindowHandle == 0) {
+            _logger.LogWarning("Could not get active window handle for Explorer");
+            return 0;
+        }
+        
+        lock (_processLock) {
+            _lastExplorerWindowHandle = activeWindowHandle;
+        }
+        _logger.LogInformation("Stored Explorer window handle for cleanup: {WindowHandle}", activeWindowHandle);
+        
+        // Ensure the window is active
+        AutoItX.WinActivate(activeWindowHandle);
+        await Task.Delay(500);
 
         // Send Enter key to open the selected file
         _logger.LogInformation("Sending Enter key to open file: {FileName}", fileName);
@@ -168,7 +178,6 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
 
         // Try to find the PID of the started process using .NET Process class
         var processName = Path.GetFileNameWithoutExtension(filePath);
-
         try {
             for (int attempt = 0; attempt < 3; attempt++) {
                 var processes = System.Diagnostics.Process.GetProcessesByName(processName);
@@ -225,19 +234,29 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
         _logger.LogInformation("Explorer opened with PID: {Pid}", explorerPid);
 
         // Wait for explorer window to appear
-        await Task.Delay(1000);
-
-        // Wait for the Explorer window to be active
-        AutoItX.WinWait(directory, "", 5);
-        AutoItX.WinActivate(directory);
         await Task.Delay(500);
 
-        // Store the folder name for later cleanup
-        var folderName = Path.GetFileName(directory);
-        lock (_processLock) {
-            _lastExplorerWindowTitle = folderName;
+        // Get the active window handle (the Explorer window that just opened)
+        // Use [ACTIVE] to get the currently active window
+        nint activeWindowHandle = AutoItX.WinGetHandle("[ACTIVE]");
+        if (activeWindowHandle == 0) {
+            _logger.LogWarning("Could not get active window handle, trying by class");
+            // Fallback: try to find the most recent Explorer window by class
+            activeWindowHandle = AutoItX.WinGetHandle("[CLASS:CabinetWClass]");
         }
-        _logger.LogInformation("Stored Explorer window title for cleanup: {WindowTitle}", folderName);
+        if (activeWindowHandle == 0) {
+            _logger.LogWarning("Could not get active window handle for Explorer");
+            return 0;
+        }
+        
+        lock (_processLock) {
+            _lastExplorerWindowHandle = activeWindowHandle;
+        }
+        _logger.LogInformation("Stored Explorer window handle for cleanup: {WindowHandle}", activeWindowHandle);
+        
+        // Ensure the window is active
+        AutoItX.WinActivate(activeWindowHandle);
+        await Task.Delay(500);
 
         // Double-click to open the archive/ISO file (simulates human clicking to view contents)
         _logger.LogInformation("Double-clicking archive/ISO file to open: {FileName}", fileName);
@@ -369,30 +388,30 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
         }
 
         // Close the Explorer window if it was used
-        if (!string.IsNullOrEmpty(_lastExplorerWindowTitle)) {
+        if (_lastExplorerWindowHandle != 0) {
             try {
-                _logger.LogInformation("Attempting to close Explorer window with title: {WindowTitle}", _lastExplorerWindowTitle);
+                _logger.LogInformation("Attempting to close Explorer window with handle: {WindowHandle}", _lastExplorerWindowHandle);
                         
-                // Check if the window exists
-                int windowExists = AutoItX.WinExists(_lastExplorerWindowTitle);
+                // Check if the window still exists
+                int windowExists = AutoItX.WinExists(_lastExplorerWindowHandle);
                 if (windowExists == 1) {
                     _logger.LogInformation("Explorer window found, attempting to close it");
                             
-                    // Method 1: Try using WinClose (graceful close)
-                    int closeResult = AutoItX.WinClose(_lastExplorerWindowTitle);
+                    // Try graceful close first
+                    int closeResult = AutoItX.WinClose(_lastExplorerWindowHandle);
                             
                     if (closeResult == 1) {
                         _logger.LogInformation("WinClose sent to Explorer window");
                         await Task.Delay(500);
-                                
+                        
                         // Check if window still exists
-                        if (AutoItX.WinExists(_lastExplorerWindowTitle) == 0) {
-                            _logger.LogInformation("Successfully closed Explorer window using WinClose");
+                        if (AutoItX.WinExists(_lastExplorerWindowHandle) == 0) {
+                            _logger.LogInformation("Successfully closed Explorer window");
                         } else {
-                            // Method 2: Force close with WinKill
+                            // Force close with WinKill
                             _logger.LogInformation("Window still exists, using WinKill to force close");
-                            int killResult = AutoItX.WinKill(_lastExplorerWindowTitle);
-                                    
+                            int killResult = AutoItX.WinKill(_lastExplorerWindowHandle);
+                            
                             if (killResult == 1) {
                                 await Task.Delay(300);
                                 _logger.LogInformation("WinKill sent to Explorer window");
@@ -401,21 +420,19 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
                             }
                         }
                     } else {
-                        _logger.LogWarning("WinClose failed for Explorer window, trying WinKill");
-                                
-                        // Try WinKill directly
-                        int killResult = AutoItX.WinKill(_lastExplorerWindowTitle);
+                        _logger.LogWarning("WinClose failed, trying WinKill");
+                        int killResult = AutoItX.WinKill(_lastExplorerWindowHandle);
                         if (killResult == 1) {
                             await Task.Delay(300);
                             _logger.LogInformation("WinKill sent to Explorer window");
                         }
                     }
                 } else {
-                    _logger.LogInformation("Explorer window with title '{WindowTitle}' not found - may have already been closed", _lastExplorerWindowTitle);
+                    _logger.LogInformation("Explorer window with handle {WindowHandle} not found - may have already been closed", _lastExplorerWindowHandle);
                 }
             }
             catch (Exception ex) {
-                _logger.LogWarning(ex, "Error closing Explorer window with title: {WindowTitle}", _lastExplorerWindowTitle);
+                _logger.LogWarning(ex, "Error closing Explorer window with handle: {WindowHandle}", _lastExplorerWindowHandle);
             }
         }
 
@@ -461,7 +478,7 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
         lock (_processLock) {
             _lastExtractionPath = null;
             _lastMountedIsoPath = null;
-            _lastExplorerWindowTitle = null;
+            _lastExplorerWindowHandle = 0;
         }
 
         return (true, "Process killed successfully using AutoIt Explorer");
