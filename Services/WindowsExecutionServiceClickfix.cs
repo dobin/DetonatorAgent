@@ -57,7 +57,7 @@ public class WindowsExecutionServiceClickfix : IExecutionService {
     }
 
     public Task<(bool Success, string? ErrorMessage)> KillLastExecutionAsync() {
-        return Task.FromResult((false, null as string));
+        return Task.FromResult((true, null as string));
     }
 
     public Task<(int Pid, string Stdout, string Stderr)> GetExecutionLogsAsync() {
