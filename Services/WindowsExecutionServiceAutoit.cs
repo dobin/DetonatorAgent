@@ -136,17 +136,17 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
         _logger.LogInformation("Opening Explorer using Win+E shortcut");
         AutoItX.Send("#e"); // Win+E to open Explorer
         
-        await Task.Delay(1000); // Wait for Explorer to open
+        await Task.Delay(1500); // Wait for Explorer to open
         
         // Navigate to the directory by typing the path in the address bar
         _logger.LogInformation("Navigating to directory: {Directory}", directory);
         AutoItX.Send("!d"); // Alt+D to focus address bar
-        await Task.Delay(250);
+        await Task.Delay(1000);
         AutoItX.Send(directory); // Type the directory path
         await Task.Delay(500);
         AutoItX.Send("{ENTER}"); // Press Enter to navigate
         
-        await Task.Delay(250); // Wait for navigation to complete
+        await Task.Delay(500); // Wait for navigation to complete
         
         // Select the file by typing its name
         _logger.LogInformation("Selecting file: {FileName}", fileName);
@@ -188,39 +188,8 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
         // Wait for the file to start executing
         await Task.Delay(500);
 
-        // Try to find the PID of the started process using .NET Process class
         var processName = Path.GetFileNameWithoutExtension(filePath);
-        try {
-            for (int attempt = 0; attempt < 3; attempt++) {
-                var processes = System.Diagnostics.Process.GetProcessesByName(processName);
-                if (processes.Length > 0) {
-                    // Check all processes, prioritizing newer ones
-                    var sortedProcesses = processes.OrderByDescending(p => p.StartTime).ToList();
-
-                    foreach (var process in sortedProcesses) {
-                        try {
-                            int foundPid = process.Id;
-                            _logger.LogInformation("Found started process {ProcessName} with PID: {Pid} (attempt {Attempt}/3)", processName, foundPid, attempt + 1);
-                            return foundPid;
-                        }
-                        catch (Exception ex) {
-                            _logger.LogWarning(ex, "Error accessing process {ProcessName}", processName);
-                        }
-                    }
-                }
-
-                if (attempt < 2) {
-                    _logger.LogInformation("Process {ProcessName} not found yet, retrying (attempt {Attempt}/3)", processName, attempt + 1);
-                    await Task.Delay(500);
-                }
-            }
-        }
-        catch (Exception ex) {
-            _logger.LogWarning(ex, "Error finding process {ProcessName}", processName);
-        }
-
-        _logger.LogWarning("Could not find PID for process {ProcessName}", processName);
-        return 0;
+        return await _FindProcessPidAsync(processName);
     }
 
     private async Task<int> _ExecuteArchiveViaExplorerAsync(string filePath) {
@@ -358,37 +327,69 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
         // Wait for the file to start executing
         await Task.Delay(1000);
 
-        // Try to find any new processes that started recently
-        try {
-            // Wait a bit more for process to fully start
-            await Task.Delay(1000);
-            
-            // Get all processes and try to find newly started ones
-            var allProcesses = System.Diagnostics.Process.GetProcesses();
-            var recentProcesses = allProcesses
-                .Where(p => {
-                    try {
-                        return (DateTime.Now - p.StartTime).TotalSeconds < 5;
-                    }
-                    catch {
-                        return false;
-                    }
-                })
-                .OrderByDescending(p => p.StartTime)
-                .ToList();
+        // For archive, we don't know the process name, so use null to trigger recent-process scan
+        return await _FindProcessPidAsync(null);
+    }
 
-            if (recentProcesses.Any()) {
-                var newestProcess = recentProcesses.First();
-                _logger.LogInformation("Found recently started process: {ProcessName} with PID: {Pid}", 
-                    newestProcess.ProcessName, newestProcess.Id);
-                return newestProcess.Id;
+    private async Task<int> _FindProcessPidAsync(string? processName) {
+        if (!string.IsNullOrEmpty(processName)) {
+            // Name-based lookup with retries (for direct executables)
+            try {
+                for (int attempt = 0; attempt < 3; attempt++) {
+                    var processes = System.Diagnostics.Process.GetProcessesByName(processName);
+                    if (processes.Length > 0) {
+                        var sortedProcesses = processes.OrderByDescending(p => p.StartTime).ToList();
+                        foreach (var process in sortedProcesses) {
+                            try {
+                                int foundPid = process.Id;
+                                _logger.LogInformation("Found started process {ProcessName} with PID: {Pid} (attempt {Attempt}/3)", processName, foundPid, attempt + 1);
+                                return foundPid;
+                            }
+                            catch (Exception ex) {
+                                _logger.LogWarning(ex, "Error accessing process {ProcessName}", processName);
+                            }
+                        }
+                    }
+                    if (attempt < 2) {
+                        _logger.LogInformation("Process {ProcessName} not found yet, retrying (attempt {Attempt}/3)", processName, attempt + 1);
+                        await Task.Delay(500);
+                    }
+                }
             }
+            catch (Exception ex) {
+                _logger.LogWarning(ex, "Error finding process {ProcessName}", processName);
+            }
+            _logger.LogWarning("Could not find PID for process {ProcessName}", processName);
+            return 0;
         }
-        catch (Exception ex) {
-            _logger.LogWarning(ex, "Error finding recently started process");
-        }
+        else {
+            // Recent-process scan (for archives/ZIP/ISO where we don't know the name)
+            try {
+                var allProcesses = System.Diagnostics.Process.GetProcesses();
+                var recentProcesses = allProcesses
+                    .Where(p => {
+                        try {
+                            return (DateTime.Now - p.StartTime).TotalSeconds < 5;
+                        }
+                        catch {
+                            return false;
+                        }
+                    })
+                    .OrderByDescending(p => p.StartTime)
+                    .ToList();
 
-        return 0;
+                if (recentProcesses.Any()) {
+                    var newestProcess = recentProcesses.First();
+                    _logger.LogInformation("Found recently started process: {ProcessName} with PID: {Pid}",
+                        newestProcess.ProcessName, newestProcess.Id);
+                    return newestProcess.Id;
+                }
+            }
+            catch (Exception ex) {
+                _logger.LogWarning(ex, "Error finding recently started process");
+            }
+            return 0;
+        }
     }
 
     public async Task<(bool Success, string? ErrorMessage)> KillLastExecutionAsync() {
