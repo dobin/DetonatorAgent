@@ -105,7 +105,7 @@ public class FibratusEdrPlugin : IEdrService {
                     }
                 }
 
-                _logger.LogInformation("Fibratus Plugin: Retrieved {EventCount} Fibratus events", eventCount);
+                _logger.LogInformation("Fibratus Plugin: Found {EventCount} Fibratus events", eventCount);
             }
             catch (EventLogNotFoundException) {
                 _logger.LogWarning("Fibratus Plugin: Application log not found. This might be expected on some systems.");
@@ -356,7 +356,7 @@ public class FibratusEdrPlugin : IEdrService {
                 response.Detected = true;
 
             response.Success = true;
-            _logger.LogInformation("Fibratus Plugin: Successfully parsed {AlertCount} alerts", response.Alerts.Count);
+            _logger.LogInformation("Fibratus Plugin: Identified {AlertCount} relevant alerts", response.Alerts.Count);
         }
         catch (Exception ex)
         {

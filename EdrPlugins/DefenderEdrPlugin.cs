@@ -103,7 +103,7 @@ public class DefenderEdrPlugin : IEdrService {
                     }
                 }
 
-                _logger.LogInformation("Defender Plugin: Retrieved {EventCount} Windows Defender events", eventCount);
+                _logger.LogInformation("Defender Plugin: Found {EventCount} Windows Defender events", eventCount);
             }
             catch (EventLogNotFoundException) {
                 _logger.LogWarning("Defender Plugin: Windows Defender Operational log not found. This might be expected on some systems.");
@@ -227,7 +227,7 @@ public class DefenderEdrPlugin : IEdrService {
             }
 
             response.Success = true;
-            _logger.LogInformation("Defender Plugin: Successfully parsed {AlertCount} alerts", response.Alerts.Count);
+            _logger.LogInformation("Defender Plugin: Identified {AlertCount} relevant alerts", response.Alerts.Count);
         }
         catch (Exception ex)
         {
