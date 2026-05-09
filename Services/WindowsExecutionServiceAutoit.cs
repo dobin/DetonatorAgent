@@ -33,7 +33,6 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
         _edrService = edrService;
     }
 
-
     public async Task<bool> WriteFileAsync(string filePath, byte[] content, byte? xorKey = null) {
         droppedFilePath = "";
         try {
@@ -69,7 +68,7 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
             _logger.LogInformation("Executing malware using AutoIt Explorer: {FilePath} with args: {Arguments}", droppedFilePath, arguments ?? "");
 
             var fileExtension = Path.GetExtension(droppedFilePath).ToLowerInvariant();
-            int pid = 0;
+            int pid;
 
             // Determine the type of file and use appropriate method
             if (fileExtension == ".zip" || fileExtension == ".iso") {
@@ -80,18 +79,14 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
                 // Direct executable - open in explorer and double-click
                 pid = await _ExecuteFileViaExplorerAsync(droppedFilePath);
             }
-
             lock (_processLock) {
                 _lastProcessId = pid;
             }
 
             if (pid == 0) {
-                _logger.LogWarning("No pid aquired. Process early exit or error.");
-                _edrService?.StopCollection();
-            }
-            else {
-                var logPid = (int)pid;
-                _logger.LogInformation("Process started successfully using AutoIt Explorer with PID: {Pid}", logPid);
+                return (true, 0, "No pid aquired. Failure to execute, or failure to confirm execution");
+            } else {
+                _logger.LogInformation("Process started successfully using AutoIt Explorer with PID: {Pid}", pid);
 
                 // Monitor the process in the background until it stops, then stop EDR collection
                 _ = Task.Run(async () => {
@@ -203,7 +198,7 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
             _logger.LogWarning(ex, "Error finding process {ProcessName}", processName);
         }
 
-        _logger.LogWarning("Could not find PID for process {ProcessName}, returning explorer PID", processName);
+        _logger.LogWarning("Could not find PID for process {ProcessName}", processName);
         return 0;
     }
 
@@ -352,8 +347,10 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
         return 0;
     }
 
-
     public async Task<(bool Success, string? ErrorMessage)> KillLastExecutionAsync() {
+        // If we still record, stop it now
+        _edrService?.StopCollection();
+
         // attempt to kill the process
         if (_lastProcessId != 0) {
             _logger.LogInformation("Attempting to kill process with PID using AutoIt: {Pid}", _lastProcessId);

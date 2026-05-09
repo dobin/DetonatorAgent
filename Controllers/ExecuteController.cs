@@ -114,7 +114,6 @@ public class ExecuteController : ControllerBase {
                     _logger.LogInformation("Exec: Malware execution blocked by antivirus");
                     return Ok(new ExecuteFileResponse {
                         Status = "virus",
-                        Pid = 0,
                         Message = "Malware execution blocked by antivirus"
                     });
                 }
@@ -126,12 +125,20 @@ public class ExecuteController : ControllerBase {
             } else {
                 _logger.LogInformation("Exec: Malware executed successfully with PID: {Pid}", pid);
                 _executionTracking.SetLastExecutionService(executionService);
-            }
 
-            return Ok(new ExecuteFileResponse {
-                Status = "ok",
-                Pid = pid
-            });
+                if (pid == 0) {
+                    return Ok(new ExecuteFileResponse {
+                        Status = "ok",
+                        Pid = 0,
+                        Message = errorMessage
+                    });
+                } else {
+                    return Ok(new ExecuteFileResponse {
+                        Status = "ok",
+                        Pid = pid
+                    });
+                }
+            }
         }
         catch (Exception ex) {
             _logger.LogError(ex, "Error in /api/exec");
