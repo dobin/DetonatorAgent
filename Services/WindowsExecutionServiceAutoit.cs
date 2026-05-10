@@ -121,6 +121,11 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
         }
     }
 
+
+    private int WAIT_EXPLORER_OPENING = 1500;
+    private int WAIT_EXPLORER_NAVIGATION = 1000;
+    private int WAIT_SHORT = 250;
+    private int WAIT_EXPLORER_OPEN_CONTAINER = 1000;
     private async Task<int> _ExecuteFileViaExplorerAsync(string filePath) {
         _logger.LogInformation("Opening explorer.exe to execute file: {FilePath}", filePath);
 
@@ -133,61 +138,45 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
         }
 
         // Open Explorer using Win+E shortcut, then navigate to the directory
-        _logger.LogInformation("Opening Explorer using Win+E shortcut");
         AutoItX.Send("#e"); // Win+E to open Explorer
+        await Task.Delay(WAIT_EXPLORER_OPENING); // Wait for Explorer to open
         
-        await Task.Delay(1500); // Wait for Explorer to open
-        
-        // Navigate to the directory by typing the path in the address bar
-        _logger.LogInformation("Navigating to directory: {Directory}", directory);
-        AutoItX.Send("!d"); // Alt+D to focus address bar
-        await Task.Delay(1000);
-        AutoItX.Send(directory); // Type the directory path
-        await Task.Delay(500);
-        AutoItX.Send("{ENTER}"); // Press Enter to navigate
-        
-        await Task.Delay(500); // Wait for navigation to complete
-        
-        // Select the file by typing its name
-        _logger.LogInformation("Selecting file: {FileName}", fileName);
-        AutoItX.Send(fileName); // Type filename to select it
-        await Task.Delay(500);
-        
-        _logger.LogInformation("Explorer opened and navigated to file location");
-
-        // Wait for explorer window to appear
-        await Task.Delay(500);
-
         // Get the active window handle (the Explorer window that just opened)
-        // Use [ACTIVE] to get the currently active window
         nint activeWindowHandle = AutoItX.WinGetHandle("[ACTIVE]");
         if (activeWindowHandle == 0) {
-            _logger.LogWarning("Could not get active window handle, trying by class");
             // Fallback: try to find the most recent Explorer window by class
+            _logger.LogWarning("Could not get active window handle, trying by class");
             activeWindowHandle = AutoItX.WinGetHandle("[CLASS:CabinetWClass]");
         }
-        // Check again
+        // Check active window handle again
         if (activeWindowHandle == 0) {
             _logger.LogWarning("Could not get active window handle for Explorer");
             return 0;
         }
-        
         lock (_processLock) {
             _lastExplorerWindowHandle = activeWindowHandle;
         }
-        _logger.LogInformation("Stored Explorer window handle for cleanup: {WindowHandle}", activeWindowHandle);
-        
-        // Ensure the window is active
-        AutoItX.WinActivate(activeWindowHandle);
-        await Task.Delay(500);
+
+        // Instrument the opened explorer
+
+        // Navigate to the directory by typing the path in the address bar
+        AutoItX.Send("!d"); // Alt+D to focus address bar
+        await Task.Delay(WAIT_EXPLORER_NAVIGATION);
+        AutoItX.Send(directory); // Type the directory path
+        await Task.Delay(WAIT_SHORT);
+        AutoItX.Send("{ENTER}"); // Press Enter to navigate
+        await Task.Delay(WAIT_SHORT);
+
+        // Select the file by typing its name
+        AutoItX.Send(fileName);
+        await Task.Delay(WAIT_SHORT);
 
         // Send Enter key to open the selected file
-        _logger.LogInformation("Sending Enter key to open file: {FileName}", fileName);
         AutoItX.Send("{ENTER}");
-
         // Wait for the file to start executing
-        await Task.Delay(500);
+        await Task.Delay(WAIT_SHORT);
 
+        // Get the process
         var processName = Path.GetFileNameWithoutExtension(filePath);
         return await _FindProcessPidAsync(processName);
     }
@@ -204,31 +193,9 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
         }
 
         // Open Explorer using Win+E shortcut, then navigate to the directory
-        _logger.LogInformation("Opening Explorer using Win+E shortcut");
         AutoItX.Send("#e"); // Win+E to open Explorer
-        
-        await Task.Delay(1000); // Wait for Explorer to open
-        
-        // Navigate to the directory by typing the path in the address bar
-        _logger.LogInformation("Navigating to directory: {Directory}", directory);
-        AutoItX.Send("!d"); // Alt+D to focus address bar
-        await Task.Delay(300);
-        AutoItX.Send(directory); // Type the directory path
-        await Task.Delay(300);
-        AutoItX.Send("{ENTER}"); // Press Enter to navigate
-        
-        await Task.Delay(1000); // Wait for navigation to complete
-        
-        // Select the archive/ISO file by typing its name
-        _logger.LogInformation("Selecting file: {FileName}", fileName);
-        AutoItX.Send(fileName); // Type filename to select it
-        await Task.Delay(500);
-        
-        int explorerPid = 0; // We don't have a direct PID from this method
-        _logger.LogInformation("Explorer opened and navigated to archive/ISO location");
+        await Task.Delay(WAIT_EXPLORER_OPENING); // Wait for Explorer to open
 
-        // Wait for explorer window to appear
-        await Task.Delay(500);
 
         // Get the active window handle (the Explorer window that just opened)
         // Use [ACTIVE] to get the currently active window
@@ -242,26 +209,27 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
             _logger.LogWarning("Could not get active window handle for Explorer");
             return 0;
         }
-        
         lock (_processLock) {
             _lastExplorerWindowHandle = activeWindowHandle;
         }
-        _logger.LogInformation("Stored Explorer window handle for cleanup: {WindowHandle}", activeWindowHandle);
-        
-        // Ensure the window is active
-        AutoItX.WinActivate(activeWindowHandle);
-        await Task.Delay(500);
 
+        // Navigate to the directory by typing the path in the address bar
+        AutoItX.Send("!d"); // Alt+D to focus address bar
+        await Task.Delay(WAIT_EXPLORER_NAVIGATION);
+        AutoItX.Send(directory); // Type the directory path
+        await Task.Delay(WAIT_SHORT);
+        AutoItX.Send("{ENTER}"); // Press Enter to navigate
+        await Task.Delay(WAIT_SHORT); // Wait for navigation to complete
+        
+        // Select the archive/ISO file by typing its name
+        AutoItX.Send(fileName); // Type filename to select it
+        await Task.Delay(WAIT_SHORT);
+        
         // Double-click to open the archive/ISO file (simulates human clicking to view contents)
-        _logger.LogInformation("Double-clicking archive/ISO file to open: {FileName}", fileName);
         AutoItX.Send("{ENTER}");
         
         // Wait for the archive/ISO to open (Windows will either mount ISO or open ZIP in Explorer)
-        await Task.Delay(2000);
-
-        // For ZIP files, a new Explorer window opens showing contents
-        // For ISO files, Windows mounts it and opens it in Explorer
-        // Now we need to find and execute the first executable file in the opened location
+        await Task.Delay(WAIT_EXPLORER_OPEN_CONTAINER);
 
         // Store ISO path for cleanup if it's an ISO
         if (Path.GetExtension(filePath).ToLowerInvariant() == ".iso") {
@@ -276,24 +244,14 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
             _logger.LogInformation("ZIP file opened in Explorer window");
         }
 
-        // Wait for the new window with archive contents to appear and become active
-        await Task.Delay(1000);
-
-        // Find the first executable file in the opened view
-        // We'll look for files alphabetically and select the first .exe, .bat, .com
-        // Navigate to the first file by typing its name or using arrow keys
-        _logger.LogInformation("Navigating to first executable in archive contents");
-        
         // Press Home to go to the first item in the list
         AutoItX.Send("{HOME}");
-        await Task.Delay(300);
+        await Task.Delay(WAIT_SHORT);
+        AutoItX.Send("{ENTER}");
+        await Task.Delay(WAIT_SHORT); // Wait for the file to start executing
 
-        if (true) {
-            // Simple approach: just execute the first item
-            _logger.LogInformation("Attempting to execute first item in archive");
-            AutoItX.Send("{ENTER}");
-
-        } else {
+        // Alternative implementation, not used currently
+        if (false) { 
             // Look for an executable file by navigating through the list
             // We'll press Down arrow and check if we find an executable
             // For simplicity, we'll press Enter on the first item assuming it's executable
@@ -320,12 +278,9 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
             }
             if (!foundExecutable) {
                 _logger.LogWarning("Could not find executable in archive after {MaxAttempts} attempts", maxAttempts);
-                return explorerPid;
+                return 0;
             }
         }
-
-        // Wait for the file to start executing
-        await Task.Delay(1000);
 
         // For archive, we don't know the process name, so use null to trigger recent-process scan
         return await _FindProcessPidAsync(null);
