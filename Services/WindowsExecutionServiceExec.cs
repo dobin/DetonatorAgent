@@ -283,14 +283,34 @@ public class WindowsExecutionServiceExec : IExecutionService {
         await Task.Delay(500);
 
         foreach (var fileToDelete in _cleanupFiles) {
-            try {
-                if (File.Exists(fileToDelete)) {
-                    File.Delete(fileToDelete);
-                    _logger.LogInformation("Deleted cleanup file: {FilePath}", fileToDelete);
+            bool deletionSucceeded = false;
+            Exception? lastException = null;
+
+            // Attempt to delete the file up to 3 times with 0.5s delays
+            for (int attempt = 1; attempt <= 3; attempt++) {
+                try {
+                    if (File.Exists(fileToDelete)) {
+                        File.Delete(fileToDelete);
+                        _logger.LogInformation("Deleted cleanup file: {FilePath}", fileToDelete);
+                        deletionSucceeded = true;
+                        break;
+                    }
+                    else {
+                        deletionSucceeded = true;
+                        break;
+                    }
+                }
+                catch (Exception ex) {
+                    lastException = ex;
+                    if (attempt < 3) {
+                        await Task.Delay(500);
+                    }
                 }
             }
-            catch (Exception ex) {
-                _logger.LogError(ex, "Failed to delete cleanup file: {FilePath}", fileToDelete);
+
+            // Only log error if all 3 attempts failed
+            if (!deletionSucceeded && lastException != null) {
+                _logger.LogError(lastException, "Failed to delete cleanup file after 3 attempts: {FilePath}", fileToDelete);
             }
         }
         _cleanupFiles.Clear();
