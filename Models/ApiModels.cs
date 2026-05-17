@@ -64,3 +64,17 @@ public class EdrAlertsResponse
     public List<SubmissionAlert> Alerts { get; set; } = new();
     public bool Detected { get; set; }
 }
+
+public class ExecutionLogsResponse
+{
+    [JsonPropertyName("stdout")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Stdout { get; set; }
+
+    [JsonPropertyName("stderr")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Stderr { get; set; }
+
+    [JsonPropertyName("pid")]
+    public int Pid { get; set; }
+}

@@ -47,7 +47,7 @@ public class LogsController : ControllerBase {
     }
 
     [HttpGet("execution")]
-    public async Task<ActionResult<string>> GetExecutionLogs() {
+    public async Task<ActionResult<ExecutionLogsResponse>> GetExecutionLogs() {
         try {
             // Get the last used execution service
             var executionService = _executionTracking.GetLastExecutionService();
@@ -57,9 +57,16 @@ public class LogsController : ControllerBase {
             }
 
             var (pid, stdout, stderr) = await executionService.GetExecutionLogsAsync();
-            var ret = "stdout:\n" + stdout + "\n\nstderr:\n" + stderr;
 
-            return Ok(ret);
+            var response = new ExecutionLogsResponse { Pid = pid };
+            if (!string.IsNullOrEmpty(stdout)) {
+                response.Stdout = stdout;
+            }
+            if (!string.IsNullOrEmpty(stderr)) {
+                response.Stderr = stderr;
+            }
+
+            return Ok(response);
         }
         catch (Exception ex) {
             _logger.LogError(ex, "LogsController: Error retrieving execution logs");
