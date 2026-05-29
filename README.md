@@ -62,24 +62,51 @@ Install:
 * .NET 8.0 SDK
 * Asp.Net
 
-If you use Defender or MDE:
+### Command Line Options
+
+```
+> dotnet run -- --help
+
+DetonatorAgent 1.0.0
+Copyright (C) 2026 DetonatorAgent
+
+  -p, --port    (Default: 8080) Port number to listen on (1-65535). Default: 8080
+  -e, --edr     (Default: defender) EDR plugin to use: defender, fibratus, example. Default: defender
+  --help        Display this help text
+```
+
+Examples:
 
 ```powershell
-dotnet run -- --edr=defender
+# Start with default settings (port 8080, defender EDR)
+dotnet run
+
+# Start with custom port
+dotnet run -- --port 9090
+
+# Start with fibratus EDR plugin
+dotnet run -- --edr=fibratus
+
+# Start with custom port and EDR plugin
+dotnet run -- --port 9090 --edr=fibratus
+
+# Short form
+dotnet run -- -p 9090 -e fibratus
 ```
 
 The API will be available at:
-* http://localhost:8080
+* http://localhost:<port> (default: 8080)
 
 Start it as user (no high privileges required). 
 
 
 ## Supported Local EDR
 
-For `--edr=`
+For `--edr=` or `-e`
 
 * defender
 * fibratus
+* example (for testing)
 
 
 ### EDR: Defender

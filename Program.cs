@@ -1,7 +1,36 @@
 using DetonatorAgent.Services;
 using DetonatorAgent.EdrPlugins;
+using DetonatorAgent.Models;
+using CommandLine;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Parse command line arguments
+var options = new CommandLineOptions();
+var parseResult = Parser.Default.ParseArguments<CommandLineOptions>(args)
+    .WithParsed(opts => {
+        options.Port = opts.Port;
+        options.Edr = opts.Edr;
+    })
+    .WithNotParsed(errors => {
+        // If help was requested or parsing failed, exit
+        Environment.Exit(0);
+    });
+
+// Validate port range
+if (options.Port < 1 || options.Port > 65535)
+{
+    Console.WriteLine($"Invalid --port value '{options.Port}'. Must be an integer between 1 and 65535.");
+    Environment.Exit(1);
+}
+
+// Validate EDR plugin
+var validEdrPlugins = new[] { "defender", "fibratus", "example" };
+if (!validEdrPlugins.Contains(options.Edr.ToLower()))
+{
+    Console.WriteLine($"Unknown EDR plugin '{options.Edr}'. Valid options: {string.Join(", ", validEdrPlugins)}");
+    Environment.Exit(1);
+}
 
 // Configure Kestrel to accept larger request bodies (100MB)
 builder.WebHost.ConfigureKestrel(serverOptions =>
@@ -18,17 +47,8 @@ builder.Logging.AddSimpleConsole(options =>
     options.TimestampFormat = "yyyy-MM-dd HH:mm:ss ";
 });
 
-// Configure port from command line argument or use default from appsettings.json (8080)
-var portArg = args.FirstOrDefault(arg => arg.StartsWith("--port="))?.Split('=')[1];
-if (!string.IsNullOrEmpty(portArg))
-{
-    if (!int.TryParse(portArg, out int port) || port < 1 || port > 65535)
-    {
-        Console.WriteLine($"Invalid --port value '{portArg}'. Must be an integer between 1 and 65535.");
-        return 1;
-    }
-    builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
-}
+// Configure port from command line argument
+builder.WebHost.UseUrls($"http://0.0.0.0:{options.Port}");
 
 // Add services to the container.
 builder.Services.AddControllers();
@@ -58,7 +78,7 @@ else {
 }
 
 // Register EDR service based on command line argument
-var edrService = args.FirstOrDefault(arg => arg.StartsWith("--edr="))?.Split('=')[1]?.ToLower() ?? "defender";
+var edrService = options.Edr.ToLower();
 
 if (OperatingSystem.IsWindows()) {
     switch (edrService) {
