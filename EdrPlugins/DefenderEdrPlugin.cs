@@ -194,8 +194,9 @@ public class DefenderEdrPlugin : IEdrService {
                     try
                     {
                         // Parse ISO 8601 format: 2025-07-04T14:55:37.511Z
+                        // Parse as UTC, then convert to local timezone
                         detectionTime = DateTime.Parse(detectionTimeStr.Replace("Z", "+00:00"), 
-                            null, System.Globalization.DateTimeStyles.RoundtripKind);
+                            null, System.Globalization.DateTimeStyles.RoundtripKind).ToLocalTime();
                     }
                     catch (Exception ex)
                     {
