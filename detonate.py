@@ -48,14 +48,14 @@ def get_edr_alerts(base_url, sleep_time=1, count=1):
                             
                             # Display header only once
                             if not header_displayed:
-                                print(f"{'title':<30} {'severity':<8} {'category':<8} alertId")
-                                print(f"{'-----':<30} {'--------':<8} {'--------':<8} -------")
+                                print(f"{'title':<30} {'severity':<8} {'category':<8}")
+                                print(f"{'-----':<30} {'--------':<8} {'--------':<8}")
                                 header_displayed = True
                             
                             title = alert.get("title", "").ljust(30)
                             severity = alert.get("severity", "").ljust(8)
                             category = alert.get("category", "").ljust(8)
-                            print(f"{title} {severity} {category} {alert_id}")
+                            print(f"{title} {severity} {category}")
             else:
                 print(Fore.YELLOW + f"  Warning: Failed to retrieve EDR logs (Status: {response.status_code})")
         except Exception as e:
@@ -128,7 +128,13 @@ def main():
             
         if exec_response.status_code != 200:
             print(Fore.RED + f"Error: Failed to execute file (HTTP status code: {exec_response.status_code})")
-            raise RuntimeError("Execution failed")
+            try:
+                error_detail = exec_response.json()
+                print(Fore.RED + f"Server error: {error_detail}")
+            except Exception:
+                if exec_response.text:
+                    print(Fore.RED + f"Server error: {exec_response.text}")
+            sys.exit(1)
             
         # Parse and check the execution response
         try:
@@ -138,7 +144,15 @@ def main():
             print(Fore.RED + "Warning: Failed to parse execution response")
             print(Fore.LIGHTBLACK_EX + f"Response: {exec_response.text}")
             
-        print(Fore.YELLOW + f"File Execution status: {status}")
+        match status:
+            case "virus":
+                print(Fore.YELLOW + "File detected as malicious on write (not executed)")
+            case "ok":
+                print(Fore.GREEN + "File executed successfully")
+            case "error":
+                print(Fore.RED + "Error during execution")
+            case _:
+                print(Fore.RED + f"Unexpected status: {status}")
         
         # Cleanup temporary encrypted file
         if temp_file_path and os.path.exists(temp_file_path):
