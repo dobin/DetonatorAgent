@@ -16,13 +16,13 @@ def parse_arguments():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     
-    parser.add_argument("-File", required=True, help="Path to the file to execute")
-    parser.add_argument("-DropPath", default=r"C:\Users\Public\Downloads\\", help="Target directory to write the file")
-    parser.add_argument("-ExecutableArgs", default="", help="Arguments to pass to the executable")
-    parser.add_argument("-ExecutableName", default="", help="Specific file to execute from an archive")
-    parser.add_argument("-ExecutionMode", default="autoit", choices=["exec", "autoit", "clickfix"], help="Execution service type")
-    parser.add_argument("-Runtime", type=int, default=10, help="Duration in seconds to wait before killing the process")
-    parser.add_argument("-BaseUrl", default="http://localhost:8080", help="Base URL of the DetonatorAgent API")
+    parser.add_argument("--file", required=True, help="Path to the file to execute")
+    parser.add_argument("--droppath", default=r"C:\Users\Public\Downloads\\", help="Target directory to write the file")
+    parser.add_argument("--executableargs", default="", help="Arguments to pass to the executable")
+    parser.add_argument("--executablename", default="", help="Specific file to execute from an archive")
+    parser.add_argument("--executionmode", default="autoit", choices=["exec", "autoit", "clickfix"], help="Execution service type")
+    parser.add_argument("--runtime", type=int, default=10, help="Duration in seconds to wait before killing the process")
+    parser.add_argument("--server", default="http://localhost:8080", help="Base URL of the DetonatorAgent API")
     
     return parser.parse_args()
 
@@ -48,11 +48,11 @@ def get_edr_alerts(base_url, sleep_time=1, count=1):
                             
                             # Display header only once
                             if not header_displayed:
-                                print(f"{'title':<23} {'severity':<8} {'category':<8} alertId")
-                                print(f"{'-----':<23} {'--------':<8} {'--------':<8} -------")
+                                print(f"{'title':<30} {'severity':<8} {'category':<8} alertId")
+                                print(f"{'-----':<30} {'--------':<8} {'--------':<8} -------")
                                 header_displayed = True
                             
-                            title = alert.get("title", "").ljust(23)
+                            title = alert.get("title", "").ljust(30)
                             severity = alert.get("severity", "").ljust(8)
                             category = alert.get("category", "").ljust(8)
                             print(f"{title} {severity} {category} {alert_id}")
@@ -75,24 +75,16 @@ def main():
     args = parse_arguments()
     
     # Validate input file exists
-    if not os.path.exists(args.File):
-        print(Fore.RED + f"Error: File not found: {args.File}")
+    if not os.path.exists(args.file):
+        print(Fore.RED + f"Error: File not found: {args.file}")
         sys.exit(1)
         
-    print(f"File: {args.File}")
-    print(f"Drop Path: {args.DropPath}")
-    print(f"Executable Args: {args.ExecutableArgs}")
-    print(f"Executable Name: {args.ExecutableName}")
-    print(f"Execution Mode: {args.ExecutionMode}")
-    print(f"Runtime: {args.Runtime} seconds")
-    print(f"Base URL: {args.BaseUrl}\n")
-    
     # Acquire Lock
     try:
-        lock_response = requests.post(f"{args.BaseUrl}/api/lock/acquire", timeout=5)
+        lock_response = requests.post(f"{args.server}/api/lock/acquire", timeout=5)
         lock_response.raise_for_status()
     except Exception:
-        print(Fore.RED + f"Error: Cant reach {args.BaseUrl}")
+        print(Fore.RED + f"Error: Cant reach {args.server}")
         sys.exit(1)
         
     temp_file_path = None
@@ -101,7 +93,7 @@ def main():
     try:
         # Encrypt file via basic XOR
         xor_key = random.randint(1, 255)
-        with open(args.File, "rb") as f:
+        with open(args.file, "rb") as f:
             file_bytes = f.read()
             
         encrypted_bytes = bytes([b ^ xor_key for b in file_bytes])
@@ -111,28 +103,28 @@ def main():
             temp_file.write(encrypted_bytes)
             temp_file_path = temp_file.name
             
-        print(Fore.LIGHTBLACK_EX + f"Encrypted file created: {temp_file_path}")
+        #print(Fore.LIGHTBLACK_EX + f"Encrypted file created: {temp_file_path}")
         
         # Prepare multipart/form-data payload
-        file_name = os.path.basename(args.File)
+        file_name = os.path.basename(args.file)
         
         # requests requires a payload dictionary for data fields and files tuple for file streams
         payload = {
-            "drop_path": args.DropPath,
+            "drop_path": args.droppath,
             "xor_key": str(xor_key)
         }
-        if args.ExecutableArgs:
-            payload["executable_args"] = args.ExecutableArgs
-        if args.ExecutableName:
-            payload["executable_name"] = args.ExecutableName
-        if args.ExecutionMode:
-            payload["execution_mode"] = args.ExecutionMode
+        if args.executableargs:
+            payload["executable_args"] = args.executableargs
+        if args.executablename:
+            payload["executable_name"] = args.executablename
+        if args.executionmode:
+            payload["execution_mode"] = args.executionmode
             
         print("Executing file on DetonatorAgent...")
         
         with open(temp_file_path, "rb") as tf:
             files = {"file": (file_name, tf)}
-            exec_response = requests.post(f"{args.BaseUrl}/api/execute/exec", data=payload, files=files)
+            exec_response = requests.post(f"{args.server}/api/execute/exec", data=payload, files=files)
             
         if exec_response.status_code != 200:
             print(Fore.RED + f"Error: Failed to execute file (HTTP status code: {exec_response.status_code})")
@@ -154,19 +146,19 @@ def main():
             
         # Wait & Poll (if execution was successful)
         if status == "ok":
-            print(f"Execution running, waiting {args.Runtime} seconds...")
-            get_edr_alerts(base_url=args.BaseUrl, sleep_time=1, count=args.Runtime)
+            print(f"Execution running, waiting {args.runtime} seconds...")
+            get_edr_alerts(base_url=args.server, sleep_time=1, count=args.runtime)
             print("Polling/Runtime finished")
             
         # If it's detected on file write, poll for 3 seconds to allow EDR to process
         if status == "virus":
-            get_edr_alerts(base_url=args.BaseUrl, sleep_time=1, count=3)
+            get_edr_alerts(base_url=args.server, sleep_time=1, count=3)
             
         # Kill process if it ran
         if status == "ok":
-            print("Killing process...")
+            #print("Killing process...")
             try:
-                kill_response = requests.post(f"{args.BaseUrl}/api/execute/kill", timeout=5)
+                kill_response = requests.post(f"{args.server}/api/execute/kill", timeout=5)
                 if kill_response.status_code != 200:
                     print(Fore.YELLOW + f"Warning: Failed to kill process (HTTP status code: {kill_response.status_code})")
             except Exception:
@@ -175,7 +167,7 @@ def main():
     finally:
         # Release Lock (always execute)
         try:
-            unlock_response = requests.post(f"{args.BaseUrl}/api/lock/release", timeout=5)
+            unlock_response = requests.post(f"{args.server}/api/lock/release", timeout=5)
             if unlock_response.status_code != 200:
                 print(Fore.YELLOW + f"Warning: Failed to release lock (HTTP status code: {unlock_response.status_code})")
         except Exception:
