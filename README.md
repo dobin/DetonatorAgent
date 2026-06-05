@@ -22,10 +22,10 @@ be made publicly available sometimes maybe.
 
 ## Usage 
 
-Use `execfile.ps1`:
+Use `detonate.ps1` or `detonate.py`:
 
 ```
-> powershell.exe -ep bypass .\execfile.ps1 -file mimikatz.exe -executionmode exec
+> powershell.exe -ep bypass .\detonate.ps1 -file mimikatz.exe -executionmode exec
 
 Executing file...
 File Execution status: virus
