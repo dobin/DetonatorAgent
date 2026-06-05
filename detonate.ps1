@@ -8,7 +8,7 @@
 #   -ExecutableName: Specific file to execute from an archive (optional, for ZIP/ISO files)
 #   -ExecutionMode: Execution service to use: "exec", "autoit"
 #   -Runtime: Duration in seconds to wait before killing the process (optional, default: 10)
-#   -BaseUrl: Base URL of the DetonatorAgent API (optional, default: http://localhost:8080)
+#   -Server: Base URL of the DetonatorAgent API (optional, default: http://localhost:8080)
 
 param(
     [Parameter(Mandatory=$true, HelpMessage="Path to the file to execute")]
@@ -31,7 +31,7 @@ param(
     [int]$Runtime = 10,
     
     [Parameter(Mandatory=$false, HelpMessage="Base URL of the DetonatorAgent API")]
-    [string]$BaseUrl = "http://localhost:8080"
+    [string]$Server = "http://localhost:8080"
 )
 
 # Validate input file exists
@@ -44,7 +44,7 @@ if (-not (Test-Path $File)) {
 function Get-EdrAlerts {
     param(
         [Parameter(Mandatory=$true)]
-        [string]$BaseUrl,
+        [string]$Server,
         
         [Parameter(Mandatory=$false)]
         [int]$Sleep = 1,
@@ -61,7 +61,7 @@ function Get-EdrAlerts {
     $HeaderDisplayed = $false
     
     for ($iteration = 0; $iteration -lt $Count; $iteration++) {
-        $edrLogs = curl.exe -s -X GET "$BaseUrl/api/logs/edr"
+        $edrLogs = curl.exe -s -X GET "$Server/api/logs/edr"
         if ($LASTEXITCODE -eq 0) {
             try {
                 $edrResponse = $edrLogs | ConvertFrom-Json
@@ -110,15 +110,15 @@ Write-Host "Executable Args: $ExecutableArgs"
 Write-Host "Executable Name: $ExecutableName"
 Write-Host "Execution Mode: $ExecutionMode"
 Write-Host "Runtime: $Runtime seconds"
-Write-Host "Base URL: $BaseUrl"
+Write-Host "Server: $Server"
 Write-Host ""
 
 # Acquire Lock
 #Write-Host "Acquiring lock..." -ForegroundColor Cyan
-$lockResponse = curl.exe -s -X POST "$BaseUrl/api/lock/acquire"
+$lockResponse = curl.exe -s -X POST "$Server/api/lock/acquire"
 $lockStatus = $LASTEXITCODE
 if ($lockStatus -ne 0) {
-    Write-Host "Error: Cant reach $BaseUrl" -ForegroundColor Red
+    Write-Host "Error: Cant reach $Server" -ForegroundColor Red
     exit 1
 }
 #Write-Host "Lock acquired successfully" -ForegroundColor Green
@@ -142,7 +142,7 @@ try {
     $curlArgs = @(
         "-s",
         "-X", "POST",
-        "$BaseUrl/api/execute/exec",
+        "$Server/api/execute/exec",
         "-F", "file=@$tempFile;filename=$fileName",
         "-F", "drop_path=$DropPath",
         "-F", "xor_key=$xorKey"
@@ -192,19 +192,19 @@ try {
     # Wait & Poll (if execution was successful)
     if ($status -eq "ok") {
         Write-Host "Execution running, waiting $Runtime seconds..."
-        Get-EdrAlerts -BaseUrl $BaseUrl -Sleep 1 -Count $Runtime
+        Get-EdrAlerts -Server $Server -Sleep 1 -Count $Runtime
         Write-Host "Polling/Runtime finished"
     }
     # If its detected on file write, 
     # poll for 3 seconds to allow EDR to process
     if ($status -eq "virus") {
-        Get-EdrAlerts -BaseUrl $BaseUrl -Sleep 1 -Count 3
+        Get-EdrAlerts -Server $Server -Sleep 1 -Count 3
     }
 
     # Kill process if it ran
     if ($status -eq "ok") {
         Write-Host "Killing process..."
-        $killResponse = curl.exe -s -X POST "$BaseUrl/api/execute/kill"
+        $killResponse = curl.exe -s -X POST "$Server/api/execute/kill"
         $killStatus = $LASTEXITCODE
         if ($killStatus -ne 0) {
             Write-Host "Warning: Failed to kill process (curl exit code: $killStatus)" -ForegroundColor Yellow
@@ -214,7 +214,7 @@ try {
     # Get execution logs if executed
     #if ($status -eq "ok") {
     #    #Write-Host "  Getting execution logs..." -ForegroundColor Gray
-    #    $execLogs = curl.exe -s -X GET "$BaseUrl/api/logs/execution"
+    #    $execLogs = curl.exe -s -X GET "$Server/api/logs/execution"
     #    if ($LASTEXITCODE -eq 0) {
     #        #Write-Host "  Execution logs retrieved" -ForegroundColor Green
     #        #Write-Host "  Response: $execLogs" -ForegroundColor Gray
@@ -225,7 +225,7 @@ try {
     
     # Get agent logs
     #Write-Host "  Getting agent logs..." -ForegroundColor Gray
-    #$agentLogs = curl.exe -s -X GET "$BaseUrl/api/logs/agent"
+    #$agentLogs = curl.exe -s -X GET "$Server/api/logs/agent"
     #if ($LASTEXITCODE -ne 0) {
     #    Write-Host "  Warning: Failed to retrieve agent logs" -ForegroundColor Yellow
     #}
@@ -234,7 +234,7 @@ try {
 finally {
     # Release Lock (always execute)
     #Write-Host "`nReleasing lock..." -ForegroundColor Cyan
-    $unlockResponse = curl.exe -s -X POST "$BaseUrl/api/lock/release"
+    $unlockResponse = curl.exe -s -X POST "$Server/api/lock/release"
     $unlockStatus = $LASTEXITCODE
     if ($unlockStatus -ne 0) {
         Write-Host "Warning: Failed to release lock (curl exit code: $unlockStatus)" -ForegroundColor Yellow
