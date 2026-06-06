@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using DetonatorAgent.Models;
 using Microsoft.AspNetCore.Mvc;
@@ -39,6 +40,37 @@ public class EdrController : ControllerBase
         }
 
         return Ok(response);
+    }
+
+    [HttpGet("version")]
+    public ActionResult<VersionResponse> GetVersion()
+    {
+        var (version, compilationDate) = GetAutoIncrementedVersion();
+
+        return Ok(new VersionResponse
+        {
+            Version = version,
+            CompilationDate = compilationDate
+        });
+    }
+
+    private (string Version, DateTime CompilationDate) GetAutoIncrementedVersion()
+    {
+        var version = Assembly.GetExecutingAssembly().GetName().Version;
+        
+        if (version == null) 
+            return ("1.0.0.0", DateTime.MinValue);
+
+        // Reconstruct the build date from the third and fourth components
+        int days = version.Build;          // Days since Jan 1, 2000
+        int seconds = version.Revision * 2; // Seconds since midnight
+
+        DateTime compilationDate = new DateTime(2000, 1, 1).AddDays(days).AddSeconds(seconds);
+
+        // Convert from UTC to local time
+        compilationDate = TimeZoneInfo.ConvertTimeFromUtc(compilationDate, TimeZoneInfo.Local);
+
+        return (version.ToString(), compilationDate);
     }
 
     private static string GetHostName()

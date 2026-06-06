@@ -25,6 +25,11 @@ public class EdrVersionResponse {
     public string EdrVersion { get; set; } = string.Empty;
 }
 
+public class VersionResponse {
+    public string Version { get; set; } = string.Empty;
+    public DateTime CompilationDate { get; set; }
+}
+
 public class AgentLogsResponse {
     public List<string> Logs { get; set; } = new();
     public int Count { get; set; }
