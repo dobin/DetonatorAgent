@@ -74,6 +74,9 @@ def get_edr_alerts(base_url, sleep_time=1, count=1):
 def main():
     args = parse_arguments()
     
+    # Normalize server URL by removing trailing slashes
+    base_url = args.server.rstrip('/')
+    
     # Validate input file exists
     if not os.path.exists(args.file):
         print(Fore.RED + f"Error: File not found: {args.file}")
@@ -81,10 +84,10 @@ def main():
         
     # Acquire Lock
     try:
-        lock_response = requests.post(f"{args.server}/api/lock/acquire", timeout=5)
+        lock_response = requests.post(f"{base_url}/api/lock/acquire", timeout=5)
         lock_response.raise_for_status()
     except Exception:
-        print(Fore.RED + f"Error: Cant reach {args.server}")
+        print(Fore.RED + f"Error: Cant reach {base_url}")
         sys.exit(1)
         
     temp_file_path = None
@@ -124,7 +127,7 @@ def main():
         
         with open(temp_file_path, "rb") as tf:
             files = {"file": (file_name, tf)}
-            exec_response = requests.post(f"{args.server}/api/execute/exec", data=payload, files=files)
+            exec_response = requests.post(f"{base_url}/api/execute/exec", data=payload, files=files)
             
         if exec_response.status_code != 200:
             print(Fore.RED + f"Error: Failed to execute file (HTTP status code: {exec_response.status_code})")
@@ -161,18 +164,18 @@ def main():
         # Wait & Poll (if execution was successful)
         if status == "ok":
             print(f"Execution running, waiting {args.runtime} seconds...")
-            get_edr_alerts(base_url=args.server, sleep_time=1, count=args.runtime)
+            get_edr_alerts(base_url=base_url, sleep_time=1, count=args.runtime)
             print("Polling/Runtime finished")
             
         # If it's detected on file write, poll for 3 seconds to allow EDR to process
         if status == "virus":
-            get_edr_alerts(base_url=args.server, sleep_time=1, count=3)
+            get_edr_alerts(base_url=base_url, sleep_time=1, count=3)
             
         # Kill process if it ran
         if status == "ok":
             #print("Killing process...")
             try:
-                kill_response = requests.post(f"{args.server}/api/execute/kill", timeout=5)
+                kill_response = requests.post(f"{base_url}/api/execute/kill", timeout=5)
                 if kill_response.status_code != 200:
                     print(Fore.YELLOW + f"Warning: Failed to kill process (HTTP status code: {kill_response.status_code})")
             except Exception:
@@ -181,7 +184,7 @@ def main():
     finally:
         # Release Lock (always execute)
         try:
-            unlock_response = requests.post(f"{args.server}/api/lock/release", timeout=5)
+            unlock_response = requests.post(f"{base_url}/api/lock/release", timeout=5)
             if unlock_response.status_code != 200:
                 print(Fore.YELLOW + f"Warning: Failed to release lock (HTTP status code: {unlock_response.status_code})")
         except Exception:
