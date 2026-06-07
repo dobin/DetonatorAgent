@@ -33,7 +33,7 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
         _edrService = edrService;
     }
 
-    public async Task<bool> WriteFileAsync(string filePath, byte[] content, byte? xorKey = null) {
+    public void WriteFile(string filePath, byte[] content, byte? xorKey = null) {
         droppedFilePath = "";
         try {
             _logger.LogInformation("Writing malware to: {FilePath}, xorkey: {XorKey}", filePath, xorKey.HasValue ? xorKey.Value.ToString() : "none");
@@ -45,14 +45,13 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
 
             // We write it normally here
             // Could like ctrl-v it, but that makes it available unencrypted in this process
-            await FileWriter.WriteAsync(filePath, content, xorKey);
+            FileWriter.Write(filePath, content, xorKey);
             _logger.LogInformation("Successfully wrote malware to: {FilePath}", filePath);
             droppedFilePath = filePath;
-            return true;
         }
         catch (Exception ex) {
             _logger.LogError(ex, "Failed to write malware to: {FilePath}", filePath);
-            return false;
+            throw;
         }
     }
 
@@ -545,7 +544,7 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
 
             // First, write the content to a temporary file in the temp directory
             var tempPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString() + Path.GetExtension(filePath));
-            await FileWriter.WriteAsync(tempPath, content, xorKey);
+            FileWriter.Write(tempPath, content, xorKey);
             _logger.LogInformation("Wrote temporary file: {TempPath}", tempPath);
 
             // Open Explorer window to the destination directory

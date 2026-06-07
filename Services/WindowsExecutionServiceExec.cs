@@ -24,7 +24,7 @@ public class WindowsExecutionServiceExec : IExecutionService {
         _edrService = edrService;
     }
 
-    public async Task<bool> WriteFileAsync(string filePath, byte[] content, byte? xorKey = null) {
+    public void WriteFile(string filePath, byte[] content, byte? xorKey = null) {
         // Write the give file to the filesystem
         // - with optional XOR decoding
         // - to the given filePath
@@ -39,7 +39,7 @@ public class WindowsExecutionServiceExec : IExecutionService {
             }
 
             // Write file with optional XOR decoding
-            await FileWriter.WriteAsync(filePath, content, xorKey);
+            FileWriter.Write(filePath, content, xorKey);
             _logger.LogInformation("Successfully wrote malware to: {FilePath}", filePath);
             _executableFilePath = filePath;
 
@@ -91,12 +91,10 @@ public class WindowsExecutionServiceExec : IExecutionService {
                     // Don't fail the malware writing operation due to zip extraction failure
                 }
             }
-
-            return true;
         }
         catch (Exception ex) {
             _logger.LogError(ex, "Failed to write malware to: {FilePath}", filePath);
-            return false;
+            throw;
         }
     }
 

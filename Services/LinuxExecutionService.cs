@@ -20,7 +20,7 @@ public class LinuxExecutionService : IExecutionService {
         _edrService = edrService;
     }
 
-    public async Task<bool> WriteFileAsync(string filePath, byte[] content, byte? xorKey = null) {
+    public void WriteFile(string filePath, byte[] content, byte? xorKey = null) {
         try {
             _logger.LogInformation("Writing malware to: {FilePath}", filePath);
 
@@ -30,7 +30,7 @@ public class LinuxExecutionService : IExecutionService {
                 Directory.CreateDirectory(directory);
             }
 
-            await FileWriter.WriteAsync(filePath, content, xorKey);
+            FileWriter.Write(filePath, content, xorKey);
 
             // Set executable permissions on Linux
             var chmod = Process.Start("chmod", $"+x \"{_executableFilePath}\"");
@@ -41,11 +41,10 @@ public class LinuxExecutionService : IExecutionService {
             // Start EDR collection after writing malware
             _edrService.StartCollection();
 
-            return true;
         }
         catch (Exception ex) {
             _logger.LogError(ex, "Failed to write malware to: {FilePath}", filePath);
-            return false;
+            throw;
         }
     }
 
