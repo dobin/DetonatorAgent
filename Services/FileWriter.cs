@@ -7,21 +7,20 @@ public static class FileWriter {
         if (content == null || content.Length == 0) {
             throw new ArgumentException("Content to write cannot be null or empty", nameof(content));
         }
-        else {
-            using (var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 4096, useAsync: false)) {
-                if (xorKey.HasValue) {
-                    // Write with XOR decoding, one byte at a time
-                    // With this we make sure MDE doesnt find any (unencrypted) maldware artefacts in memory
-                    byte[] singleByte = new byte[1];
-                    for (int i = 0; i < content.Length; i++) {
-                        singleByte[0] = (byte)(content[i] ^ xorKey.Value);
-                        fileStream.Write(singleByte, 0, 1);
-                    }
+
+        using (var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 4096, useAsync: false)) {
+            if (xorKey.HasValue) {
+                // Write with XOR decoding, one byte at a time
+                // With this we make sure MDE doesnt find any (unencrypted) maldware artefacts in memory
+                byte[] singleByte = new byte[1];
+                for (int i = 0; i < content.Length; i++) {
+                    singleByte[0] = (byte)(content[i] ^ xorKey.Value);
+                    fileStream.Write(singleByte, 0, 1);
                 }
-                else {
-                    // No XOR decoding needed, write directly
-                    fileStream.Write(content, 0, content.Length);
-                }
+            }
+            else {
+                // No XOR decoding needed, write directly
+                fileStream.Write(content, 0, content.Length);
             }
         }
 
