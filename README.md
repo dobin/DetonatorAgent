@@ -1,7 +1,8 @@
 # DetonatorAgent
 
-A agent for MalDev execution and EDR log & alert collection for RedTeamers. REST API.
+A agent for realistically executing redteam artifacts and collect their EDR logs.
 
+This enables you to validate the detection coverage of your offsec tradecraft. 
 
 ## Purpose
 
