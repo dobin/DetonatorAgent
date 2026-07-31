@@ -294,6 +294,7 @@
         const executableArgs  = $("executable_args").value.trim();
         const executionMode   = $("execution_mode").value;
         const runtime         = Math.max(1, parseInt($("runtime").value, 10) || 10);
+        const randomizeName   = $("randomize_name").checked;
 
         resetUI();
         progressPanel.hidden = false;
@@ -312,10 +313,14 @@
             setStatus("Encrypting file…");
             const { blob, key } = await xorEncryptFile(file);
 
-            setStatus(`Uploading ${file.name} (${blob.size} bytes)…`);
+            const fileName = randomizeName
+                ? "malware_" + Math.random().toString(36).slice(2, 6) + "_" + file.name
+                : file.name;
+
+            setStatus(`Uploading ${fileName} (${blob.size} bytes)…`);
             const execResult = await uploadAndExecute({
                 blob,
-                fileName: file.name,
+                fileName,
                 dropPath,
                 xorKey: key,
                 executableArgs,

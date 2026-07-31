@@ -100,6 +100,27 @@ main {
     gap: 16px;
 }
 
+.checkbox-field {
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+.checkbox-field label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: normal;
+    cursor: pointer;
+}
+
+.checkbox-field input[type="checkbox"] {
+    width: 15px;
+    height: 15px;
+    cursor: pointer;
+}
+
 .actions {
     margin-top: 8px;
 }
