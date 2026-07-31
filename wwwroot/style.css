@@ -1,0 +1,239 @@
+/* Minimal light theme for DetonatorAgent web UI */
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                 Helvetica, Arial, sans-serif;
+    background: #f5f6f8;
+    color: #1f2328;
+    line-height: 1.45;
+}
+
+header {
+    background: #ffffff;
+    border-bottom: 1px solid #d0d7de;
+    padding: 20px 32px;
+}
+
+header h1 {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 600;
+}
+
+header .subtitle {
+    margin: 4px 0 0;
+    color: #57606a;
+    font-size: 14px;
+}
+
+main {
+    max-width: 960px;
+    margin: 24px auto;
+    padding: 0 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.panel {
+    background: #ffffff;
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+    padding: 20px;
+}
+
+.panel h2 {
+    margin: 0 0 16px;
+    font-size: 16px;
+    font-weight: 600;
+    border-bottom: 1px solid #eaeef2;
+    padding-bottom: 8px;
+}
+
+.panel h3 {
+    margin: 20px 0 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #24292f;
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 12px;
+    flex: 1;
+}
+
+.field label {
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 4px;
+    color: #24292f;
+}
+
+.field .req { color: #cf222e; }
+
+.field input[type="text"],
+.field input[type="number"],
+.field input[type="file"],
+.field select {
+    padding: 6px 8px;
+    border: 1px solid #d0d7de;
+    border-radius: 4px;
+    font-size: 14px;
+    background: #ffffff;
+    font-family: inherit;
+}
+
+.field input:focus,
+.field select:focus {
+    outline: none;
+    border-color: #0969da;
+    box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.15);
+}
+
+.row {
+    display: flex;
+    gap: 16px;
+}
+
+.actions {
+    margin-top: 8px;
+}
+
+button {
+    background: #1f883d;
+    color: #ffffff;
+    border: 1px solid rgba(31, 35, 40, 0.15);
+    border-radius: 6px;
+    padding: 8px 18px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+button:hover:not(:disabled) { background: #1a7f37; }
+button:disabled { background: #94d3a2; cursor: not-allowed; }
+
+.status-line {
+    font-size: 14px;
+    color: #24292f;
+    padding: 8px 12px;
+    background: #f6f8fa;
+    border: 1px solid #d0d7de;
+    border-radius: 4px;
+    margin-bottom: 12px;
+}
+
+.progress-wrap { margin-bottom: 12px; }
+
+.progress-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: #57606a;
+    margin-bottom: 4px;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 8px;
+    background: #eaeef2;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    width: 0%;
+    background: #0969da;
+    transition: width 0.2s ease;
+}
+
+.alerts-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-bottom: 8px;
+}
+
+.alerts-table th,
+.alerts-table td {
+    text-align: left;
+    padding: 6px 8px;
+    border-bottom: 1px solid #eaeef2;
+}
+
+.alerts-table th {
+    background: #f6f8fa;
+    font-weight: 600;
+    font-size: 12px;
+    color: #57606a;
+}
+
+.alerts-table tbody:empty + .muted,
+.muted {
+    font-size: 12px;
+    color: #6e7781;
+    font-style: italic;
+    margin-bottom: 8px;
+}
+
+.result-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    background: #eaeef2;
+    color: #57606a;
+}
+
+.badge.ok       { background: #dafbe1; color: #1a7f37; }
+.badge.virus    { background: #ffebe9; color: #cf222e; }
+.badge.error    { background: #fff8c5; color: #9a6700; }
+.badge.previous { background: #ddf4ff; color: #0969da; }
+
+.error-msg {
+    background: #ffebe9;
+    border: 1px solid #ffcecb;
+    color: #cf222e;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 13px;
+    margin-bottom: 12px;
+}
+
+.log-block { margin-bottom: 10px; }
+
+.log-label {
+    font-size: 12px;
+    color: #57606a;
+    margin-bottom: 4px;
+}
+
+.log {
+    background: #f6f8fa;
+    border: 1px solid #d0d7de;
+    border-radius: 4px;
+    padding: 8px 10px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px;
+    color: #1f2328;
+    max-height: 260px;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin: 0;
+}

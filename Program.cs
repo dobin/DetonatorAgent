@@ -121,6 +121,10 @@ if (app.Environment.IsDevelopment()) {
     app.UseSwaggerUI();
 }
 
+// Serve the vanilla HTML/JS web UI from wwwroot/
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
 app.UseAuthorization();
 app.MapControllers();
 

@@ -23,7 +23,10 @@ be made publicly available sometimes maybe.
 
 ## Usage 
 
-Use `detonate.ps1` or `detonate.py`:
+A web UI is available at `http://localhost:8080/` when the agent is running.
+![DetonatorAgent Web UI](Doc/detonatoragent-ui.png)
+
+Use `detonate.ps1` or `detonate.py` for scripted/automated usage:
 
 ```
 > powershell.exe -ep bypass .\detonate.ps1 -file mimikatz.exe -executionmode exec

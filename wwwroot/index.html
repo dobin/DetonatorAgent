@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DetonatorAgent</title>
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+    <header>
+        <h1>DetonatorAgent</h1>
+        <p class="subtitle">Upload a file, detonate it, and observe EDR alerts.</p>
+    </header>
+
+    <main>
+        <section class="panel">
+            <h2>Submit</h2>
+            <form id="detonate-form">
+                <div class="field">
+                    <label for="file">File <span class="req">*</span></label>
+                    <input type="file" id="file" name="file" required />
+                </div>
+
+                <div class="field">
+                    <label for="drop_path">Drop path</label>
+                    <input type="text" id="drop_path" name="drop_path"
+                           value="C:\Users\Public\Downloads\" />
+                </div>
+
+                <div class="field">
+                    <label for="executable_args">Executable args</label>
+                    <input type="text" id="executable_args" name="executable_args" placeholder="(optional)" />
+                </div>
+
+                <div class="row">
+                    <div class="field">
+                        <label for="execution_mode">Execution mode</label>
+                        <select id="execution_mode" name="execution_mode">
+                            <option value="exec">exec</option>
+                            <option value="autoit" selected>autoit</option>
+                            <option value="clickfix">clickfix</option>
+                        </select>
+                    </div>
+
+                    <div class="field">
+                        <label for="runtime">Runtime (seconds)</label>
+                        <input type="number" id="runtime" name="runtime" value="10" min="1" max="600" />
+                    </div>
+                </div>
+
+                <div class="actions">
+                    <button type="submit" id="submit-btn">Detonate</button>
+                </div>
+            </form>
+        </section>
+
+        <section class="panel" id="progress-panel" hidden>
+            <h2>Progress</h2>
+            <div id="status-line" class="status-line">Initializing…</div>
+
+            <div class="progress-wrap">
+                <div class="progress-label">
+                    <span>Upload</span>
+                    <span id="upload-percent">0%</span>
+                </div>
+                <div class="progress-bar"><div class="progress-bar-fill" id="upload-fill"></div></div>
+            </div>
+
+            <div class="progress-wrap" id="run-progress-wrap" hidden>
+                <div class="progress-label">
+                    <span>Running</span>
+                    <span id="run-elapsed">0 / 0 s</span>
+                </div>
+                <div class="progress-bar"><div class="progress-bar-fill" id="run-fill"></div></div>
+            </div>
+
+            <h3>Live EDR alerts</h3>
+            <table class="alerts-table" id="live-alerts">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Severity</th>
+                        <th>Category</th>
+                        <th>Alert ID</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+            <div class="muted" id="live-alerts-empty">No alerts yet.</div>
+        </section>
+
+        <section class="panel" id="results-panel" hidden>
+            <h2>Results</h2>
+
+            <div class="result-header">
+                <span class="badge" id="result-status">–</span>
+                <span id="result-pid" class="muted"></span>
+            </div>
+            <div id="result-message" class="error-msg" hidden></div>
+
+            <h3>EDR alerts</h3>
+            <table class="alerts-table" id="final-alerts">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Severity</th>
+                        <th>Category</th>
+                        <th>Alert ID</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+            <div class="muted" id="final-alerts-empty">No alerts.</div>
+
+            <h3>Execution logs</h3>
+            <div class="log-block">
+                <div class="log-label">stdout</div>
+                <pre id="exec-stdout" class="log"></pre>
+            </div>
+            <div class="log-block">
+                <div class="log-label">stderr</div>
+                <pre id="exec-stderr" class="log"></pre>
+            </div>
+
+            <h3>Agent logs</h3>
+            <pre id="agent-logs" class="log"></pre>
+        </section>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>
