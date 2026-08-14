@@ -249,38 +249,6 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
         AutoItX.Send("{ENTER}");
         await Task.Delay(WAIT_SHORT); // Wait for the file to start executing
 
-        // Alternative implementation, not used currently
-        if (false) { 
-            // Look for an executable file by navigating through the list
-            // We'll press Down arrow and check if we find an executable
-            // For simplicity, we'll press Enter on the first item assuming it's executable
-            // A more robust approach would scan the directory first, but this simulates human behavior
-
-            bool foundExecutable = false;
-
-            // Try to find .exe files first by typing 'e' to jump to files starting with 'e'
-            // Or just navigate to the first item and execute it
-            int maxAttempts = 20; // Try up to 20 files
-        
-            for (int i = 0; i < maxAttempts; i++) {
-                // Get the currently selected item's name using clipboard
-                AutoItX.Send("^c"); // Copy filename
-                await Task.Delay(200);
-            
-                // We can't easily read clipboard from AutoIt, so we'll just try to execute
-                // In a real scenario, we'd check the file extension
-                // For now, simulate human behavior: look for first .exe by pressing Down until we find one
-            
-           
-                await Task.Delay(300);
-                AutoItX.Send("{DOWN}");
-            }
-            if (!foundExecutable) {
-                _logger.LogWarning("Could not find executable in archive after {MaxAttempts} attempts", maxAttempts);
-                return 0;
-            }
-        }
-
         // For archive, we don't know the process name, so use null to trigger recent-process scan
         return await _FindProcessPidAsync(null);
     }
@@ -477,11 +445,9 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
 
     }
 
-    public async Task<(int Pid, string Stdout, string Stderr)> GetExecutionLogsAsync() {
-        //await Task.CompletedTask; // For consistency with async pattern
-
+    public Task<(int Pid, string Stdout, string Stderr)> GetExecutionLogsAsync() {
         lock (_processLock) {
-            return (_lastProcessId, _lastStdout, _lastStderr);
+            return Task.FromResult((_lastProcessId, _lastStdout, _lastStderr));
         }
     }
 

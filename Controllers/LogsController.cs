@@ -20,7 +20,7 @@ public class LogsController : ControllerBase {
     }
 
     [HttpGet("edr")]
-    public async Task<ActionResult<EdrAlertsResponse>> GetEdrLogs() {
+    public ActionResult<EdrAlertsResponse> GetEdrLogs() {
         try {
             var edrAlertsResponse = _edrService.GetEdrAlerts();
             return Ok(edrAlertsResponse);
@@ -32,7 +32,7 @@ public class LogsController : ControllerBase {
     }
 
     [HttpGet("edrversion")]
-    public async Task<ActionResult<EdrVersionResponse>> GetEdrVersion() {
+    public ActionResult<EdrVersionResponse> GetEdrVersion() {
         try {
             var edrVersion = _edrService.GetEdrVersion();
             return Ok(new EdrVersionResponse {

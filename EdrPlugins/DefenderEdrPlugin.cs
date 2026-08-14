@@ -262,7 +262,7 @@ public class DefenderEdrPlugin : IEdrService {
                 }
                 else
                 {
-                    systemData[child.Name.LocalName] = child.Value;
+                    systemData[child.Name.LocalName] = child.Value ?? string.Empty;
                 }
             }
             data["System"] = systemData;
