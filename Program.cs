@@ -24,11 +24,37 @@ if (options.Port < 1 || options.Port > 65535)
     Environment.Exit(1);
 }
 
-// Validate EDR plugin
-var validEdrPlugins = new[] { "defender", "fibratus", "example" };
-if (!validEdrPlugins.Contains(options.Edr.ToLower()))
+// Discover available EDR plugins for the current OS via reflection.
+var availablePlugins = EdrPluginRegistry.GetAvailablePlugins();
+var availableNames = string.Join(", ", availablePlugins.Select(p => p.Name));
+
+// Special sentinel: `--edr ?` lists plugins available on this OS and exits.
+if (options.Edr == "?")
 {
-    Console.WriteLine($"Unknown EDR plugin '{options.Edr}'. Valid options: {string.Join(", ", validEdrPlugins)}");
+    Console.WriteLine($"Available EDR plugins on this OS: {availableNames}");
+    var defaultName = EdrPluginRegistry.GetDefaultPluginName();
+    if (defaultName is not null)
+        Console.WriteLine($"Default: {defaultName}");
+    Environment.Exit(0);
+}
+
+// If --edr was not provided, fall back to the platform default.
+if (string.IsNullOrEmpty(options.Edr))
+{
+    var defaultName = EdrPluginRegistry.GetDefaultPluginName();
+    if (defaultName is null)
+    {
+        Console.WriteLine($"No default EDR plugin is defined for this OS. Available: {availableNames}");
+        Environment.Exit(1);
+    }
+    options.Edr = defaultName;
+}
+
+// Resolve the plugin type; error out if the name is unknown on this OS.
+var edrPluginType = EdrPluginRegistry.Resolve(options.Edr);
+if (edrPluginType is null)
+{
+    Console.WriteLine($"Unknown EDR plugin '{options.Edr}'. Available on this OS: {availableNames}");
     Environment.Exit(1);
 }
 
@@ -65,44 +91,26 @@ builder.Services.AddSingleton<ExecutionTrackingService>();
 builder.Services.AddSingleton<AgentLogService>();
 builder.Services.AddSingleton<IAgentLogService>(provider => provider.GetRequiredService<AgentLogService>());
 
-// Register platform-specific services
-if (OperatingSystem.IsWindows()) {
-    // Register all Windows execution service implementations
-    builder.Services.AddSingleton<IExecutionService, WindowsExecutionServiceExec>();
-    builder.Services.AddSingleton<IExecutionService, WindowsExecutionServiceAutoit>();
-    builder.Services.AddSingleton<IExecutionService, WindowsExecutionServiceClickfix>();
-}
-else {
-    // Register Linux execution service implementation
-    builder.Services.AddSingleton<IExecutionService, LinuxExecutionService>();
-}
-
-// Register EDR service based on command line argument
+// Register platform-specific execution services and EDR plugin.
+// The extension methods are defined in platform-specific files
+// (WindowsStartupExtensions.cs / LinuxStartupExtensions.cs) that are
+// conditionally compiled via the csproj, so no #if directives are needed here.
 var edrService = options.Edr.ToLower();
 
+// Register execution services (platform-specific). EDR plugin is registered
+// centrally below, regardless of OS, using the type resolved via reflection.
+#if WINDOWS_BUILD
+// WindowsStartupExtensions.cs is excluded from Linux builds, so its methods
+// must be guarded here. The Linux branch uses only cross-platform types.
 if (OperatingSystem.IsWindows()) {
-    switch (edrService) {
-        case "defender":
-            builder.Services.AddSingleton<IEdrService, DefenderEdrPlugin>();
-            break;
-        case "fibratus":
-            builder.Services.AddSingleton<IEdrService, FibratusEdrPlugin>();
-            break;
-        case "example":
-            builder.Services.AddSingleton<IEdrService, ExampleEdrPlugin>();
-            break;
-        default:
-            Console.WriteLine($"Unknown EDR service '{edrService}' specified. Use 'defender' or 'fibratus'");
-            return 1;
-    }
+    builder.Services.AddWindowsExecutionServices();
 }
-else {
-    switch (edrService) {
-        default:
-            builder.Services.AddSingleton<IEdrService, ExampleEdrPlugin>();
-            break;
-    }
-}
+#else
+builder.Services.AddLinuxExecutionServices();
+#endif
+
+// Register the selected EDR plugin (discovered via EdrPluginRegistry).
+builder.Services.AddSingleton(typeof(IEdrService), edrPluginType!);
 
 var app = builder.Build();
 

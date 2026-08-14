@@ -108,9 +108,13 @@ Start it as user (no high privileges required).
 
 For `--edr=` or `-e`
 
-* defender
-* fibratus
-* example (for testing)
+Supported EDR:
+* Windows Defender
+* Windows Fibratus
+
+And:
+* Example (cross-platform, no-op — for testing)
+* Logfile (cross-platform, reads alerts from a plain text log file)
 
 
 ### EDR: Defender
@@ -127,6 +131,29 @@ File `%PROGRAMFILES%\Fibratus\Config\fibratus.yml`:
 alertsenders:
   eventlog:
     format: json
+```
+
+## Linux support
+
+Install DotNet:
+
+```
+$ apt install dotnet-sdk-8.0
+```
+
+DetonatorAgent has best-effort Linux support:
+
+* Only the `exec` execution mode is available (no AutoIt, no clickfix).
+* Default drop path is `/tmp/`.
+* Zip/tar extraction is **not** implemented — pass a plain executable.
+* No Linux-native EDR plugin is included. Use `--edr=example` for a no-op
+  workflow test, or `--edr=logfile` to bridge your own EDR through a text
+  log file (see above).
+
+Build & run:
+```bash
+dotnet build
+dotnet run -- --edr=logfile
 ```
 
 

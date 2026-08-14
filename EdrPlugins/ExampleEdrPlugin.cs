@@ -1,13 +1,13 @@
 using DetonatorAgent.Models;
 using DetonatorAgent.Services;
-using System.Diagnostics.Eventing.Reader;
-using System.Runtime.Versioning;
-using System.Text;
-using System.Xml;
 
 namespace DetonatorAgent.EdrPlugins;
 
-[SupportedOSPlatform("windows")]
+/// <summary>
+/// Cross-platform no-op EDR plugin. Returns empty alert lists.
+/// Useful for testing the DetonatorAgent workflow without a real EDR backend.
+/// </summary>
+[EdrPlugin("example", EdrPlatform.Cross)]
 public class ExampleEdrPlugin : IEdrService {
     private readonly ILogger<ExampleEdrPlugin> _logger;
 

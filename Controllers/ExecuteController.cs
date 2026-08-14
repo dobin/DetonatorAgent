@@ -1,27 +1,35 @@
 using Microsoft.AspNetCore.Mvc;
 using DetonatorAgent.Services;
 using DetonatorAgent.Models;
-using System.Runtime.Versioning;
 
 namespace DetonatorAgent.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[SupportedOSPlatform("windows")]
 public class ExecuteController : ControllerBase {
     private readonly ILogger<ExecuteController> _logger;
-    private readonly ILogger<IExecutionService> _executionLogger;
     private readonly IEdrService _edrService;
     private readonly ExecutionTrackingService _executionTracking;
+    private readonly IEnumerable<IExecutionService> _executionServices;
 
-    public ExecuteController(ILogger<ExecuteController> logger, 
-        ILogger<IExecutionService> executionLogger,
+    public ExecuteController(ILogger<ExecuteController> logger,
         IEdrService edrService,
-        ExecutionTrackingService executionTracking) {
+        ExecutionTrackingService executionTracking,
+        IEnumerable<IExecutionService> executionServices) {
         _logger = logger;
-        _executionLogger = executionLogger;
         _edrService = edrService;
         _executionTracking = executionTracking;
+        _executionServices = executionServices;
+    }
+
+    private static string DefaultDropPath() {
+        return OperatingSystem.IsWindows() ? @"C:\Users\Public\Downloads\" : "/tmp/";
+    }
+
+    private IExecutionService? ResolveExecutionService(string? executionMode) {
+        var mode = string.IsNullOrWhiteSpace(executionMode) ? "exec" : executionMode.ToLowerInvariant();
+        return _executionServices.FirstOrDefault(s =>
+            string.Equals(s.ExecutionTypeName, mode, StringComparison.OrdinalIgnoreCase));
     }
 
     [HttpPost("exec")]
@@ -35,22 +43,21 @@ public class ExecuteController : ControllerBase {
         _logger.LogInformation("Exec: Execute request received for file: {FileName}", file?.FileName ?? "null");
 
         try {
-            // Create the execution service based on execution_mode parameter
-            // This will track all execution & artefacts
-            IExecutionService executionService;
-            if (execution_mode == "exec") {
-                executionService = new WindowsExecutionServiceExec(_executionLogger, _edrService);
-            } else if (execution_mode == "autoit") {
-                executionService = new WindowsExecutionServiceAutoit(_executionLogger, _edrService);
-            } else if (execution_mode == "clickfix") {
-                executionService = new WindowsExecutionServiceClickfix(_executionLogger);
-            } else {
-                // Use "exec" as default execution mode
-                executionService = new WindowsExecutionServiceExec(_executionLogger, _edrService);
-                _logger.LogInformation("Exec: No execution_mode provided, defaulting to 'exec'");
+            // Resolve the execution service from DI by ExecutionTypeName.
+            // On Windows the DI container has "exec", "autoit", "clickfix".
+            // On Linux only "exec" is registered.
+            var executionService = ResolveExecutionService(execution_mode);
+            if (executionService == null) {
+                var available = string.Join(", ", _executionServices.Select(s => s.ExecutionTypeName));
+                _logger.LogWarning("Exec: Unknown execution_mode '{Mode}'. Available: {Available}",
+                    execution_mode, available);
+                return BadRequest(new ExecuteFileResponse {
+                    Status = "error",
+                    Message = $"Unknown execution_mode '{execution_mode}'. Available: {available}"
+                });
             }
-            
-            _logger.LogInformation("Exec: Using execution type: {ExecutionType}", execution_mode);
+
+            _logger.LogInformation("Exec: Using execution type: {ExecutionType}", executionService.ExecutionTypeName);
 
             // Validate xor_key parameter
             byte? xorKeyByte = null;
@@ -77,11 +84,9 @@ public class ExecuteController : ControllerBase {
                 });
             }
 
-            // Determine path
-            var targetPath = string.IsNullOrWhiteSpace(drop_path) ? @"C:\Users\Public\Downloads\" : drop_path;
-            if (!targetPath.EndsWith(@"\")) {
-                targetPath += @"\";
-            }
+            // Determine target path. Default is OS-specific
+            // Typically C:\Users\Public\Downloads\ on Windows, /tmp/ on Linux
+            var targetPath = string.IsNullOrWhiteSpace(drop_path) ? DefaultDropPath() : drop_path;
             var filePath = Path.Combine(targetPath, file.FileName);
 
             // Get file content

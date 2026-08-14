@@ -9,20 +9,45 @@
     <AssemblyVersion>1.0.*</AssemblyVersion>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <!-- Cross-project switch: true when building for Windows. -->
+    <IsWindowsBuild Condition="'$(RuntimeIdentifier)' == 'win-x64' OR '$(RuntimeIdentifier)' == 'win-x86' OR '$(RuntimeIdentifier)' == 'win-arm64' OR ('$(RuntimeIdentifier)' == '' AND '$(OS)' == 'Windows_NT')">true</IsWindowsBuild>
+    <IsWindowsBuild Condition="'$(IsWindowsBuild)' == ''">false</IsWindowsBuild>
+  </PropertyGroup>
+
+  <!-- Expose WINDOWS_BUILD as a C# preprocessor symbol so Program.cs can
+       guard the one call site that references Windows-only extension methods. -->
+  <PropertyGroup Condition="'$(IsWindowsBuild)' == 'true'">
+    <DefineConstants>$(DefineConstants);WINDOWS_BUILD</DefineConstants>
+  </PropertyGroup>
+
   <ItemGroup>
-    <PackageReference Include="AutoItX.Dotnet" Version="3.3.14.5" />
     <PackageReference Include="CommandLineParser" Version="2.9.1" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.0.4" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.4.0" />
-    <PackageReference Include="System.Diagnostics.EventLog" Version="8.0.0" Condition="'$(RuntimeIdentifier)' == 'win-x64' OR '$(OS)' == 'Windows_NT'" />
-    <PackageReference Include="System.Management" Version="10.0.1" />
   </ItemGroup>
 
-  <ItemGroup>
+  <!-- Windows-only dependencies -->
+  <ItemGroup Condition="'$(IsWindowsBuild)' == 'true'">
+    <PackageReference Include="AutoItX.Dotnet" Version="3.3.14.5" />
+    <PackageReference Include="System.Diagnostics.EventLog" Version="8.0.0" />
+    <PackageReference Include="System.Management" Version="10.0.1" />
     <Reference Include="AutoItX3.Assembly">
       <HintPath>$(USERPROFILE)\.nuget\packages\autoitx.dotnet\3.3.14.5\lib\AutoItX3.Assembly.dll</HintPath>
     </Reference>
   </ItemGroup>
+
+  <!-- Windows-only source files: excluded when building on/for Linux -->
+  <ItemGroup Condition="'$(IsWindowsBuild)' != 'true'">
+    <Compile Remove="Services\WindowsExecutionServiceAutoit.cs" />
+    <Compile Remove="Services\WindowsExecutionServiceClickfix.cs" />
+    <Compile Remove="Services\WindowsStartupExtensions.cs" />
+    <Compile Remove="EdrPlugins\DefenderEdrPlugin.cs" />
+    <Compile Remove="EdrPlugins\FibratusEdrPlugin.cs" />
+  </ItemGroup>
+
+  <!-- LinuxStartupExtensions.cs uses only cross-platform types and is
+       compiled on both platforms; Windows simply never calls its methods. -->
 
   <ItemGroup>
     <Content Remove="azure_config.json" />

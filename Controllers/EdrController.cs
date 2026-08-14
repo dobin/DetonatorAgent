@@ -102,6 +102,10 @@ public class EdrController : ControllerBase
 
     private static string? ReadRegistryString(string path, string valueName)
     {
+        if (!OperatingSystem.IsWindows())
+        {
+            return null;
+        }
         try
         {
             using var key = Registry.LocalMachine.OpenSubKey(path);

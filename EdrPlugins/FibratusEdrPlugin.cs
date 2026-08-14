@@ -14,6 +14,7 @@ namespace DetonatorAgent.EdrPlugins;
 
 
 [SupportedOSPlatform("windows")]
+[EdrPlugin("fibratus", EdrPlatform.Windows)]
 public class FibratusEdrPlugin : IEdrService {
     private readonly ILogger<FibratusEdrPlugin> _logger;
 

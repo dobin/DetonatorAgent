@@ -1,5 +1,6 @@
 import argparse
 import os
+import platform
 import random
 import sys
 import tempfile
@@ -10,6 +11,10 @@ from colorama import init, Fore
 # Initialize colorama for cross-platform colored terminal output
 init(autoreset=True)
 
+_IS_WINDOWS = platform.system() == "Windows"
+_DEFAULT_DROPPATH = r"C:\Users\Public\Downloads\\" if _IS_WINDOWS else "/tmp/"
+_DEFAULT_EXECUTIONMODE = "autoit" if _IS_WINDOWS else "exec"
+
 def parse_arguments():
     parser = argparse.ArgumentParser(
         description="Simple workflow script for DetonatorAgent",
@@ -17,10 +22,10 @@ def parse_arguments():
     )
     
     parser.add_argument("--file", required=True, help="Path to the file to execute")
-    parser.add_argument("--droppath", default=r"C:\Users\Public\Downloads\\", help="Target directory to write the file")
+    parser.add_argument("--droppath", default=_DEFAULT_DROPPATH, help="Target directory to write the file")
     parser.add_argument("--executableargs", default="", help="Arguments to pass to the executable")
     parser.add_argument("--executablename", default="", help="Specific file to execute from an archive")
-    parser.add_argument("--executionmode", default="autoit", choices=["exec", "autoit", "clickfix"], help="Execution service type")
+    parser.add_argument("--executionmode", default=_DEFAULT_EXECUTIONMODE, choices=["exec", "autoit", "clickfix"], help="Execution service type (Linux servers only support 'exec')")
     parser.add_argument("--runtime", type=int, default=10, help="Duration in seconds to wait before killing the process")
     parser.add_argument("--server", default="http://localhost:8080", help="Base URL of the DetonatorAgent API")
     

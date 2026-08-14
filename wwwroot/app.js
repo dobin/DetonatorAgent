@@ -361,6 +361,34 @@
 
     form.addEventListener("submit", runDetonation);
 
+    // Adapt UI to the server's OS: on Linux only "exec" is supported and the
+    // default drop path is /tmp/. On Windows keep the existing options.
+    async function adaptUiToServerOs() {
+        try {
+            const res = await fetchJson("/api/edr/sysinfo");
+            const osDesc = (res.data && res.data.osVersion) ? String(res.data.osVersion) : "";
+            const isWindows = /windows/i.test(osDesc);
+            if (!isWindows) {
+                const modeSel = document.getElementById("execution_mode");
+                if (modeSel) {
+                    // Remove non-exec options.
+                    for (const opt of Array.from(modeSel.options)) {
+                        if (opt.value !== "exec") opt.remove();
+                    }
+                    modeSel.value = "exec";
+                }
+                const dropPath = document.getElementById("drop_path");
+                if (dropPath && dropPath.value.startsWith("C:\\")) {
+                    dropPath.value = "/tmp/";
+                }
+            }
+        } catch (e) {
+            console.warn("OS detection failed, keeping default UI:", e);
+        }
+    }
+
+    adaptUiToServerOs();
+
     // On initial load, try to restore what the server still holds from the
     // previous detonation. Failures are non-fatal — the fresh form is fine.
     restorePreviousResults().catch((e) => console.warn("Restore failed:", e));

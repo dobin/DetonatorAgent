@@ -14,6 +14,7 @@ namespace DetonatorAgent.EdrPlugins;
 
 
 [SupportedOSPlatform("windows")]
+[EdrPlugin("defender", EdrPlatform.Windows, WindowsDefault = true)]
 public class DefenderEdrPlugin : IEdrService {
     private readonly ILogger<DefenderEdrPlugin> _logger;
 

@@ -13,7 +13,8 @@ public class LinuxExecutionService : IExecutionService {
     private readonly object _processLock = new object();
     private string _executableFilePath = "";
 
-    public string ExecutionTypeName => "linux";
+    // API vocabulary is "exec"/"autoit"/"clickfix". On Linux only "exec" is supported.
+    public string ExecutionTypeName => "exec";
 
     public LinuxExecutionService(ILogger<LinuxExecutionService> logger, IEdrService edrService) {
         _logger = logger;
@@ -31,16 +32,18 @@ public class LinuxExecutionService : IExecutionService {
             }
 
             FileWriter.Write(filePath, content, xorKey);
+            _executableFilePath = filePath;
 
-            // Set executable permissions on Linux
-            var chmod = Process.Start("chmod", $"+x \"{_executableFilePath}\"");
-            chmod?.WaitForExit();
+            // Set executable permissions
+            try {
+                var chmod = Process.Start("chmod", $"+x \"{_executableFilePath}\"");
+                chmod?.WaitForExit();
+            }
+            catch (Exception ex) {
+                _logger.LogWarning(ex, "Failed to chmod +x on {FilePath}", _executableFilePath);
+            }
 
             _logger.LogInformation("Successfully wrote malware to: {FilePath}", _executableFilePath);
-
-            // Start EDR collection after writing malware
-            _edrService.StartCollection();
-
         }
         catch (Exception ex) {
             _logger.LogError(ex, "Failed to write malware to: {FilePath}", filePath);
@@ -193,6 +196,18 @@ public class LinuxExecutionService : IExecutionService {
         catch (Exception ex) {
             _logger.LogError(ex, "Error killing process with PID: {Pid}", _lastProcessId);
             return (false, ex.Message);
+        }
+        finally {
+            // Minimal cleanup: delete the dropped file if it still exists.
+            if (!string.IsNullOrEmpty(_executableFilePath) && File.Exists(_executableFilePath)) {
+                try {
+                    File.Delete(_executableFilePath);
+                    _logger.LogInformation("Deleted dropped file: {FilePath}", _executableFilePath);
+                }
+                catch (Exception ex) {
+                    _logger.LogWarning(ex, "Failed to delete dropped file: {FilePath}", _executableFilePath);
+                }
+            }
         }
     }
 
