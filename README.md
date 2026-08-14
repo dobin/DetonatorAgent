@@ -75,8 +75,17 @@ DetonatorAgent 1.0.0
 Copyright (C) 2026 DetonatorAgent
 
   -p, --port    (Default: 8080) Port number to listen on (1-65535). Default: 8080
-  -e, --edr     (Default: defender) EDR plugin to use: defender, fibratus, example. Default: defender
+  -e, --edr     EDR plugin to use. Use '--edr ?' to list available plugins on this OS.
+                Default: platform-specific (defender on Windows, logfile on Linux).
   --help        Display this help text
+```
+
+To list the EDR plugins available on the current OS:
+
+```
+> dotnet run -- --edr ?
+Available EDR plugins on this OS: defender, example, fibratus, logfile, none
+Default: defender
 ```
 
 Examples:
@@ -106,15 +115,31 @@ Start it as user (no high privileges required).
 
 ## Supported Local EDR
 
-For `--edr=` or `-e`
+For `--edr=` or `-e`. Run `dotnet run -- --edr ?` to list plugins available on
+the current OS.
 
-Supported EDR:
-* Windows Defender
-* Windows Fibratus
+Windows-only:
+* `defender` — Windows Defender (default on Windows)
+* `fibratus` — Windows Fibratus
 
-And:
-* Example (cross-platform, no-op — for testing)
-* Logfile (cross-platform, reads alerts from a plain text log file)
+Cross-platform:
+* `logfile` — reads alerts from a plain text log file (default on Linux)
+* `example` — no-op, for workflow testing
+* `none` — disables EDR log collection entirely (use if you only want the
+  detonation functionality)
+
+
+### Adding a new EDR plugin
+
+The plugin list is discovered at runtime via reflection — there is no
+hardcoded list. To add a new EDR:
+
+1. Create a new file in `EdrPlugins/` implementing `IEdrService`.
+2. Annotate the class with `[EdrPlugin("myname", EdrPlatform.Windows|Linux|Cross)]`.
+   Optionally set `WindowsDefault = true` or `LinuxDefault = true`.
+3. Rebuild. The plugin is now selectable via `--edr myname`.
+
+No other file needs to be edited.
 
 
 ### EDR: Defender
@@ -146,14 +171,15 @@ DetonatorAgent has best-effort Linux support:
 * Only the `exec` execution mode is available (no AutoIt, no clickfix).
 * Default drop path is `/tmp/`.
 * Zip/tar extraction is **not** implemented — pass a plain executable.
-* No Linux-native EDR plugin is included. Use `--edr=example` for a no-op
-  workflow test, or `--edr=logfile` to bridge your own EDR through a text
-  log file (see above).
+* No Linux-native EDR plugin is included. The default `logfile` plugin lets
+  you bridge your own EDR through a text log file. Alternatives:
+  `--edr=example` (no-op workflow test) or `--edr=none` (disable EDR
+  collection entirely).
 
 Build & run:
 ```bash
 dotnet build
-dotnet run -- --edr=logfile
+dotnet run
 ```
 
 
