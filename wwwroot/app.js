@@ -314,7 +314,7 @@
             const { blob, key } = await xorEncryptFile(file);
 
             const fileName = randomizeName
-                ? "malware_" + Math.random().toString(36).slice(2, 6) + "_" + file.name
+                ? "" + Math.random().toString(36).slice(2, 6) + "_" + file.name
                 : file.name;
 
             setStatus(`Uploading ${fileName} (${blob.size} bytes)…`);
