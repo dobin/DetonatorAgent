@@ -88,7 +88,7 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
             }
 
             if (pid == 0) {
-                if (await _HasDefenderBlockDialogAsync()) {
+                if (await _HasExecutionBlockDialogAsync()) {
                     _logger.LogWarning("Explorer execution was blocked by antivirus: {FilePath}", droppedFilePath);
                     return (false, 0, "virus");
                 }
@@ -137,9 +137,10 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
     private int WAIT_SHORT = 250;
     private int WAIT_EXPLORER_OPEN_CONTAINER = 1000;
 
-    private async Task<bool> _HasDefenderBlockDialogAsync() {
-        // Defender shows a standard Windows dialog after Explorer tries to open
-        // a detected file. Give that dialog time to appear before inspecting it.
+    private async Task<bool> _HasExecutionBlockDialogAsync() {
+        // Explorer's Defender block dialog uses the dropped file path as its
+        // title. Its message body is not consistently exposed to AutoIt or
+        // native window-text APIs, so use this stable, observable identifier.
         await Task.Delay(WAIT_SHORT);
 
         var dialogHandle = AutoItX.WinGetHandle("[CLASS:#32770]");
@@ -148,39 +149,15 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
         }
 
         var title = AutoItX.WinGetTitle(dialogHandle);
-        var windowText = AutoItX.WinGetText(dialogHandle);
-        var controlText = _GetDialogStaticControlText(dialogHandle);
-        var dialogContent = $"{title}\n{windowText}\n{controlText}";
-
-        var isDefenderBlock =
-            dialogContent.Contains("contains a virus", StringComparison.OrdinalIgnoreCase) ||
-            dialogContent.Contains("potentially unwanted software", StringComparison.OrdinalIgnoreCase) ||
-            dialogContent.Contains("malicious", StringComparison.OrdinalIgnoreCase) ||
-            dialogContent.Contains("blocked", StringComparison.OrdinalIgnoreCase);
-
-        if (isDefenderBlock) {
-            _logger.LogInformation("Detected Defender block dialog. Title: {Title}; Window text: {WindowText}; Control text: {ControlText}", title, windowText, controlText);
-        }
-        else {
-            _logger.LogInformation("Dialog detected but not a Defender block. Title: {Title}; Window text: {WindowText}; Control text: {ControlText}", title, windowText, controlText);
+        if (!title.Contains(Path.GetFileName(droppedFilePath), StringComparison.OrdinalIgnoreCase)) {
+            return false;
         }
 
-        return isDefenderBlock;
-    }
-
-    private static string _GetDialogStaticControlText(nint dialogHandle) {
-        // WinGetText does not reliably include all child controls. The Defender
-        // message is a Static control, while the button text is returned by
-        // WinGetText on some Windows versions.
-        var text = new List<string>();
-        for (var instance = 1; instance <= 4; instance++) {
-            var value = AutoItX.ControlGetText(dialogHandle, $"[CLASS:Static; INSTANCE:{instance}]");
-            if (!string.IsNullOrWhiteSpace(value)) {
-                text.Add(value);
-            }
-        }
-
-        return string.Join("\n", text);
+        _logger.LogInformation("Detected execution-block dialog for {FilePath}; dismissing it", droppedFilePath);
+        AutoItX.WinActivate(dialogHandle);
+        await Task.Delay(WAIT_SHORT);
+        AutoItX.Send("{ENTER}");
+        return true;
     }
 
     private async Task<int> _ExecuteFileViaExplorerAsync(string filePath) {
