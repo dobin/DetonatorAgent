@@ -148,8 +148,9 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
         }
 
         var title = AutoItX.WinGetTitle(dialogHandle);
-        var text = AutoItX.WinGetText(dialogHandle);
-        var dialogContent = $"{title}\n{text}";
+        var windowText = AutoItX.WinGetText(dialogHandle);
+        var controlText = _GetDialogStaticControlText(dialogHandle);
+        var dialogContent = $"{title}\n{windowText}\n{controlText}";
 
         var isDefenderBlock =
             dialogContent.Contains("contains a virus", StringComparison.OrdinalIgnoreCase) ||
@@ -158,10 +159,28 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
             dialogContent.Contains("blocked", StringComparison.OrdinalIgnoreCase);
 
         if (isDefenderBlock) {
-            _logger.LogInformation("Detected Defender block dialog. Title: {Title}; Text: {Text}", title, text);
+            _logger.LogInformation("Detected Defender block dialog. Title: {Title}; Window text: {WindowText}; Control text: {ControlText}", title, windowText, controlText);
+        }
+        else {
+            _logger.LogInformation("Dialog detected but not a Defender block. Title: {Title}; Window text: {WindowText}; Control text: {ControlText}", title, windowText, controlText);
         }
 
         return isDefenderBlock;
+    }
+
+    private static string _GetDialogStaticControlText(nint dialogHandle) {
+        // WinGetText does not reliably include all child controls. The Defender
+        // message is a Static control, while the button text is returned by
+        // WinGetText on some Windows versions.
+        var text = new List<string>();
+        for (var instance = 1; instance <= 4; instance++) {
+            var value = AutoItX.ControlGetText(dialogHandle, $"[CLASS:Static; INSTANCE:{instance}]");
+            if (!string.IsNullOrWhiteSpace(value)) {
+                text.Add(value);
+            }
+        }
+
+        return string.Join("\n", text);
     }
 
     private async Task<int> _ExecuteFileViaExplorerAsync(string filePath) {
