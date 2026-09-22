@@ -88,7 +88,8 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
             }
 
             if (pid == 0) {
-                return (true, 0, "No pid aquired. Failure to execute, or failure to confirm execution");
+                _logger.LogWarning("Could not confirm that Explorer started {FilePath}", droppedFilePath);
+                return (false, 0, "Could not confirm execution after Explorer opened the file");
             } else {
                 _logger.LogInformation("Process started successfully using AutoIt Explorer with PID: {Pid}", pid);
 
