@@ -88,6 +88,11 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
             }
 
             if (pid == 0) {
+                if (await _HasDefenderBlockDialogAsync()) {
+                    _logger.LogWarning("Explorer execution was blocked by antivirus: {FilePath}", droppedFilePath);
+                    return (false, 0, "virus");
+                }
+
                 _logger.LogWarning("Could not confirm that Explorer started {FilePath}", droppedFilePath);
                 return (false, 0, "Could not confirm execution after Explorer opened the file");
             } else {
@@ -131,6 +136,34 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
     private int WAIT_EXPLORER_NAVIGATION = 1000;
     private int WAIT_SHORT = 250;
     private int WAIT_EXPLORER_OPEN_CONTAINER = 1000;
+
+    private async Task<bool> _HasDefenderBlockDialogAsync() {
+        // Defender shows a standard Windows dialog after Explorer tries to open
+        // a detected file. Give that dialog time to appear before inspecting it.
+        await Task.Delay(WAIT_SHORT);
+
+        var dialogHandle = AutoItX.WinGetHandle("[CLASS:#32770]");
+        if (dialogHandle == 0) {
+            return false;
+        }
+
+        var title = AutoItX.WinGetTitle(dialogHandle);
+        var text = AutoItX.WinGetText(dialogHandle);
+        var dialogContent = $"{title}\n{text}";
+
+        var isDefenderBlock =
+            dialogContent.Contains("contains a virus", StringComparison.OrdinalIgnoreCase) ||
+            dialogContent.Contains("potentially unwanted software", StringComparison.OrdinalIgnoreCase) ||
+            dialogContent.Contains("malicious", StringComparison.OrdinalIgnoreCase) ||
+            dialogContent.Contains("blocked", StringComparison.OrdinalIgnoreCase);
+
+        if (isDefenderBlock) {
+            _logger.LogInformation("Detected Defender block dialog. Title: {Title}; Text: {Text}", title, text);
+        }
+
+        return isDefenderBlock;
+    }
+
     private async Task<int> _ExecuteFileViaExplorerAsync(string filePath) {
         _logger.LogInformation("Opening explorer.exe to execute file: {FilePath}", filePath);
 
