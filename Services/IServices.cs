@@ -2,6 +2,16 @@ using DetonatorAgent.Models;
 
 namespace DetonatorAgent.Services;
 
+public enum FileWriteStatus {
+    Written,
+    Detected,
+    Failed
+}
+
+public sealed record FileWriteResult(FileWriteStatus Status, string? Message = null) {
+    public bool IsWritten => Status == FileWriteStatus.Written;
+}
+
 public interface ILockService {
     bool IsInUse { get; }
     bool TryAcquireLock();
@@ -14,7 +24,7 @@ public interface IExecutionService {
     /// </summary>
     string ExecutionTypeName { get; }
 
-    void WriteFile(string filePath, byte[] content, byte? xorKey = null);
+    FileWriteResult WriteFile(string filePath, byte[] content, byte? xorKey = null);
     Task<(bool Success, int Pid, string? ErrorMessage)> StartProcessAsync(string? arguments = null);
     Task<(bool Success, string? ErrorMessage)> KillLastExecutionAsync();
     Task<(int Pid, string Stdout, string Stderr)> GetExecutionLogsAsync();

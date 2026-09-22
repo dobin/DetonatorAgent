@@ -104,14 +104,19 @@ public class ExecuteController : ControllerBase {
 
             // Write the file
             _logger.LogInformation("Exec: Writing file: {FilePath}", filePath);
-            try {
-                executionService.WriteFile(filePath, fileContent, xorKeyByte);
-            }
-            catch (IOException ioEx) {
-                _logger.LogWarning(ioEx, "Exec: File write failed (likely quarantined by AV): {FilePath}", filePath);
+            var writeResult = executionService.WriteFile(filePath, fileContent, xorKeyByte);
+            if (writeResult.Status == FileWriteStatus.Detected) {
+                _logger.LogInformation("Exec: File was likely quarantined by antivirus: {FilePath}", filePath);
                 return Ok(new ExecuteFileResponse {
                     Status = "virus",
-                    Message = "File write failed - likely quarantined by antivirus"
+                    Message = writeResult.Message ?? "File write was blocked or quarantined by antivirus"
+                });
+            }
+            if (!writeResult.IsWritten) {
+                _logger.LogError("Exec: Failed to write file to {FilePath}: {Message}", filePath, writeResult.Message);
+                return StatusCode(500, new ExecuteFileResponse {
+                    Status = "error",
+                    Message = writeResult.Message ?? "Failed to write file"
                 });
             }
 

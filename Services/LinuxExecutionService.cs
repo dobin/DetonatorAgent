@@ -21,7 +21,7 @@ public class LinuxExecutionService : IExecutionService {
         _edrService = edrService;
     }
 
-    public void WriteFile(string filePath, byte[] content, byte? xorKey = null) {
+    public FileWriteResult WriteFile(string filePath, byte[] content, byte? xorKey = null) {
         try {
             _logger.LogInformation("Writing malware to: {FilePath}", filePath);
 
@@ -31,7 +31,10 @@ public class LinuxExecutionService : IExecutionService {
                 Directory.CreateDirectory(directory);
             }
 
-            FileWriter.Write(filePath, content, xorKey);
+            var writeResult = FileWriter.Write(filePath, content, xorKey);
+            if (!writeResult.IsWritten) {
+                return writeResult;
+            }
             _executableFilePath = filePath;
 
             // Set executable permissions
@@ -44,10 +47,11 @@ public class LinuxExecutionService : IExecutionService {
             }
 
             _logger.LogInformation("Successfully wrote malware to: {FilePath}", _executableFilePath);
+            return new FileWriteResult(FileWriteStatus.Written);
         }
         catch (Exception ex) {
             _logger.LogError(ex, "Failed to write malware to: {FilePath}", filePath);
-            throw;
+            return new FileWriteResult(FileWriteStatus.Failed, ex.Message);
         }
     }
 

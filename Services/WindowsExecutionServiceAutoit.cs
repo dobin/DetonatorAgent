@@ -33,7 +33,7 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
         _edrService = edrService;
     }
 
-    public void WriteFile(string filePath, byte[] content, byte? xorKey = null) {
+    public FileWriteResult WriteFile(string filePath, byte[] content, byte? xorKey = null) {
         droppedFilePath = "";
         try {
             _logger.LogInformation("Writing malware to: {FilePath}, xorkey: {XorKey}", filePath, xorKey.HasValue ? xorKey.Value.ToString() : "none");
@@ -45,13 +45,18 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
 
             // We write it normally here
             // Could like ctrl-v it, but that makes it available unencrypted in this process
-            FileWriter.Write(filePath, content, xorKey);
+            var writeResult = FileWriter.Write(filePath, content, xorKey);
+            if (!writeResult.IsWritten) {
+                _logger.LogWarning("File write did not complete for {FilePath}: {WriteStatus}. {Message}", filePath, writeResult.Status, writeResult.Message);
+                return writeResult;
+            }
             _logger.LogInformation("Successfully wrote malware to: {FilePath}", filePath);
             droppedFilePath = filePath;
+            return new FileWriteResult(FileWriteStatus.Written);
         }
         catch (Exception ex) {
             _logger.LogError(ex, "Failed to write malware to: {FilePath}", filePath);
-            throw;
+            return new FileWriteResult(FileWriteStatus.Failed, ex.Message);
         }
     }
 
@@ -510,7 +515,11 @@ public class WindowsExecutionServiceAutoit : IExecutionService {
 
             // First, write the content to a temporary file in the temp directory
             var tempPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString() + Path.GetExtension(filePath));
-            FileWriter.Write(tempPath, content, xorKey);
+            var writeResult = FileWriter.Write(tempPath, content, xorKey);
+            if (!writeResult.IsWritten) {
+                _logger.LogWarning("Failed to write temporary file {TempPath}: {WriteStatus}. {Message}", tempPath, writeResult.Status, writeResult.Message);
+                return false;
+            }
             _logger.LogInformation("Wrote temporary file: {TempPath}", tempPath);
 
             // Open Explorer window to the destination directory

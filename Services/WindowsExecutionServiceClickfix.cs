@@ -17,7 +17,7 @@ public class WindowsExecutionServiceClickfix : IExecutionService {
         _logger = logger;
     }
 
-    public void WriteFile(string filePath, byte[] content, byte? xorKey = null) {
+    public FileWriteResult WriteFile(string filePath, byte[] content, byte? xorKey = null) {
         cmd = System.Text.Encoding.UTF8.GetString(content);
 
         // xor decode
@@ -28,6 +28,8 @@ public class WindowsExecutionServiceClickfix : IExecutionService {
             }
             cmd = System.Text.Encoding.UTF8.GetString(decodedBytes);
         }
+
+        return new FileWriteResult(FileWriteStatus.Written);
     }
 
     public async Task<(bool Success, int Pid, string? ErrorMessage)> StartProcessAsync(string? arguments = null) {
