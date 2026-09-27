@@ -216,6 +216,13 @@ The alphabetically first file will be double-clicked.
 
 ![AutoItExplorer Demo](Doc/detonatoragent-autoitexplorer-zip.gif)
 
+### Execution Mode: FlaUI (experimental)
+
+The `flaui` mode uses FlaUI with Microsoft UI Automation (UIA3) to navigate Explorer
+and open a directly dropped `.exe`. This initial implementation is experimental,
+requires an interactive Windows desktop, and does not yet support executable
+arguments, `.zip`, or `.iso` containers. Use `exec` or `autoit` for those cases.
+
 
 ## Feature: EDR Log retrieval
 
@@ -253,7 +260,7 @@ curl.exe -X POST http://localhost:8080/api/execute/exec -F "file=@c:\tools\proce
 
 Optional arguments:
 * `drop_path`: Where the file will be stored (default is `C:\Users\Public\Downloads`)
-* `excecution_mode`: One of the execution modes (`exec`, `autoit`)
+* `excecution_mode`: One of the execution modes (`exec`, `autoit`, `flaui`)
 * `executable_args`: Parameter to give the exe (e.g. `--help`) (only for `exec` mode)
 
 

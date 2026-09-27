@@ -338,6 +338,14 @@ if ( 1 ) {
         -ExecutionMode "autoit"
 }
 
+## ExecutionMode: FlaUI (experimental, direct .exe only)
+if ( 1 ) {
+    $TestResults += Invoke-ExecuteFile `
+        -FilePath "$ToolsPath\testexe.exe" `
+        -TestName "Execute testexe.exe through FlaUI" `
+        -ExecutionMode "flaui"
+}
+
 # Print summary
 Write-TestHeader "Test Summary"
 $successCount = ($TestResults | Where-Object { $_.Success }).Count

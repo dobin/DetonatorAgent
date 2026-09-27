@@ -31,6 +31,8 @@
   <!-- Windows-only dependencies -->
   <ItemGroup Condition="'$(IsWindowsBuild)' == 'true'">
     <PackageReference Include="AutoItX.Dotnet" Version="3.3.14.5" />
+    <PackageReference Include="FlaUI.Core" Version="5.0.0" />
+    <PackageReference Include="FlaUI.UIA3" Version="5.0.0" />
     <PackageReference Include="System.Diagnostics.EventLog" Version="8.0.0" />
     <PackageReference Include="System.Management" Version="10.0.1" />
     <Reference Include="AutoItX3.Assembly">
@@ -41,6 +43,7 @@
   <!-- Windows-only source files: excluded when building on/for Linux -->
   <ItemGroup Condition="'$(IsWindowsBuild)' != 'true'">
     <Compile Remove="Services\WindowsExecutionServiceAutoit.cs" />
+    <Compile Remove="Services\WindowsExecutionServiceFlaUi.cs" />
     <Compile Remove="Services\WindowsExecutionServiceClickfix.cs" />
     <Compile Remove="Services\WindowsStartupExtensions.cs" />
     <Compile Remove="EdrPlugins\DefenderEdrPlugin.cs" />

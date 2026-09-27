@@ -19,6 +19,7 @@ public static class WindowsStartupExtensions
     {
         services.AddSingleton<IExecutionService, WindowsExecutionServiceExec>();
         services.AddSingleton<IExecutionService, WindowsExecutionServiceAutoit>();
+        services.AddSingleton<IExecutionService, WindowsExecutionServiceFlaUi>();
         services.AddSingleton<IExecutionService, WindowsExecutionServiceClickfix>();
         return services;
     }
