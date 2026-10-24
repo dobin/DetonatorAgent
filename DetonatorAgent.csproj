@@ -52,9 +52,14 @@
     <Compile Remove="EdrPlugins\RustinelEdrPlugin.cs" />
   </ItemGroup>
 
-  <!-- The web project must not compile source belonging to the sibling test project. -->
+  <!-- The web project must not compile or copy source/build artifacts belonging
+       to the sibling test project. The Web SDK otherwise treats these files as
+       content because the test project lives beneath this project directory. -->
   <ItemGroup>
     <Compile Remove="DetonatorAgent.Tests\**\*.cs" />
+    <Content Remove="DetonatorAgent.Tests\**" />
+    <None Remove="DetonatorAgent.Tests\**" />
+    <EmbeddedResource Remove="DetonatorAgent.Tests\**" />
   </ItemGroup>
 
   <!-- LinuxStartupExtensions.cs uses only cross-platform types and is
