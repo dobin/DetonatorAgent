@@ -59,22 +59,21 @@ if (edrPluginType is null)
     Environment.Exit(1);
 }
 
-// Rustinel stores its alert files below a user-supplied base directory. The
-// explicit command-line option takes precedence over the environment fallback.
+// Rustinel stores its alert files below its managed Windows base directory.
+// The explicit command-line option takes precedence over the environment
+// fallback, followed by Rustinel's standard installation path.
 if (string.Equals(options.Edr, "rustinel", StringComparison.OrdinalIgnoreCase))
 {
-    var rustinelDirectory = string.IsNullOrWhiteSpace(options.RustinelDirectory)
+    var configuredRustinelDirectory = string.IsNullOrWhiteSpace(options.RustinelDirectory)
         ? Environment.GetEnvironmentVariable("DETONATOR_RUSTINEL_DIR")
         : options.RustinelDirectory;
+    var usingDefaultRustinelDirectory = string.IsNullOrWhiteSpace(configuredRustinelDirectory);
+    var rustinelDirectory = configuredRustinelDirectory;
 
-    if (string.IsNullOrWhiteSpace(rustinelDirectory))
-    {
-        Console.WriteLine("The Rustinel EDR plugin requires --rustinel-dir <PATH> or DETONATOR_RUSTINEL_DIR.");
-        Environment.Exit(1);
-    }
+    rustinelDirectory ??= @"C:\ProgramData\Rustinel";
 
     options.RustinelDirectory = Path.GetFullPath(rustinelDirectory);
-    if (!Directory.Exists(options.RustinelDirectory))
+    if (!usingDefaultRustinelDirectory && !Directory.Exists(options.RustinelDirectory))
     {
         Console.WriteLine($"Rustinel base directory does not exist: {options.RustinelDirectory}");
         Environment.Exit(1);

@@ -162,8 +162,14 @@ alertsenders:
 ### EDR: Rustinel
 
 Rustinel alerts are written as ECS NDJSON files, one JSON alert per line, at
-`<rustinel-base>\logs\alerts.json.<UTC-date>`. Configure the Rustinel base
-directory when selecting this plugin:
+`<rustinel-base>\logs\alerts.json.<UTC-date>` with default base directory 
+`C:\ProgramData\Rustinel`.
+
+```powershell
+dotnet run -- --edr rustinel
+```
+
+To use a different Rustinel base directory, pass it explicitly:
 
 ```powershell
 dotnet run -- --edr rustinel --rustinel-dir "C:\ProgramData\Rustinel"
@@ -175,11 +181,6 @@ Alternatively, set `DETONATOR_RUSTINEL_DIR` before starting the agent:
 $env:DETONATOR_RUSTINEL_DIR = "C:\ProgramData\Rustinel"
 dotnet run -- --edr rustinel
 ```
-
-`--rustinel-dir` takes precedence over `DETONATOR_RUSTINEL_DIR`. The selected
-base directory must already exist. DetonatorAgent reads only
-`alerts.json.<UTC-date>` files that overlap its collection window, including a
-UTC midnight rotation. 
 
 
 ## Linux support

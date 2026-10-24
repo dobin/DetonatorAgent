@@ -95,8 +95,9 @@ DetonatorAgent will attempt to parse, and generate:
 ## Plugin: Rustinel
 
 `RustinelEdrPlugin` reads Rustinel's ECS NDJSON alert stream from the supplied
-Rustinel base directory. It derives the daily file name from the collection
-window in UTC:
+Rustinel base directory. When no directory is supplied, it uses Rustinel's
+standard Windows managed directory, `C:\ProgramData\Rustinel`. It derives the
+daily file name from the collection window in UTC:
 
 ```
 <rustinel-base>\logs\alerts.json.2026-08-16
