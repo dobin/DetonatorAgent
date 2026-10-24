@@ -67,15 +67,14 @@ if (string.Equals(options.Edr, "rustinel", StringComparison.OrdinalIgnoreCase))
     var configuredRustinelDirectory = string.IsNullOrWhiteSpace(options.RustinelDirectory)
         ? Environment.GetEnvironmentVariable("DETONATOR_RUSTINEL_DIR")
         : options.RustinelDirectory;
-    var usingDefaultRustinelDirectory = string.IsNullOrWhiteSpace(configuredRustinelDirectory);
     var rustinelDirectory = configuredRustinelDirectory;
 
     rustinelDirectory ??= @"C:\ProgramData\Rustinel";
 
     options.RustinelDirectory = Path.GetFullPath(rustinelDirectory);
-    if (!usingDefaultRustinelDirectory && !Directory.Exists(options.RustinelDirectory))
+    if (!RustinelAlertSource.TryValidate(options.RustinelDirectory, out var rustinelError))
     {
-        Console.WriteLine($"Rustinel base directory does not exist: {options.RustinelDirectory}");
+        Console.WriteLine(rustinelError);
         Environment.Exit(1);
     }
 }

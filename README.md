@@ -182,6 +182,10 @@ $env:DETONATOR_RUSTINEL_DIR = "C:\ProgramData\Rustinel"
 dotnet run -- --edr rustinel
 ```
 
+The user account executing DetonatorAgent must have full access to
+`C:\ProgramData\Rustinel\logs` (or the configured log directory) and its files;
+update the directory permissions before starting the agent. 
+
 
 ## Linux support
 

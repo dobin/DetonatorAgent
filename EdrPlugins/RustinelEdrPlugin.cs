@@ -14,6 +14,59 @@ namespace DetonatorAgent.EdrPlugins;
 public sealed record RustinelPluginOptions(string BaseDirectory);
 
 /// <summary>
+/// Performs startup validation of the Rustinel alert source before the web
+/// server starts accepting detonations.
+/// </summary>
+public static class RustinelAlertSource
+{
+    public static bool TryValidate(string baseDirectory, out string error)
+    {
+        var logsDirectory = Path.Combine(baseDirectory, "logs");
+        if (!Directory.Exists(logsDirectory))
+        {
+            error = $"Rustinel log directory does not exist: {logsDirectory}";
+            return false;
+        }
+
+        string[] alertFiles;
+        try
+        {
+            alertFiles = Directory.GetFiles(logsDirectory, "alerts.json.*", SearchOption.TopDirectoryOnly);
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
+        {
+            error = $"Cannot read Rustinel log directory '{logsDirectory}': {ex.Message}";
+            return false;
+        }
+
+        if (alertFiles.Length == 0)
+        {
+            error = $"No Rustinel alert files matching 'alerts.json.*' were found in: {logsDirectory}";
+            return false;
+        }
+
+        foreach (var alertFile in alertFiles)
+        {
+            try
+            {
+                using var stream = new FileStream(alertFile, FileMode.Open, FileAccess.Read,
+                    FileShare.ReadWrite | FileShare.Delete);
+                error = string.Empty;
+                return true;
+            }
+            catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
+            {
+                // Try other rotated alert files before reporting that none are readable.
+            }
+        }
+
+        error = $"No readable Rustinel alert files were found in '{logsDirectory}'. " +
+            "Grant the DetonatorAgent user access to this directory and its files.";
+        return false;
+    }
+}
+
+/// <summary>
 /// Reads Rustinel ECS alert records from daily NDJSON files below the configured
 /// Rustinel base directory. Rustinel rotates its alert files at midnight UTC as
 /// <c>logs/alerts.json.yyyy-MM-dd</c>.
@@ -103,7 +156,8 @@ public sealed class RustinelEdrPlugin : IEdrService
             return;
         }
 
-        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read,
+            FileShare.ReadWrite | FileShare.Delete);
         using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
 
         string? line;

@@ -14,6 +14,21 @@ public sealed class RustinelEdrPluginTests : IDisposable
         """;
 
     [Fact]
+    public void AlertSourceValidation_RequiresLogsDirectoryAndAlertFile()
+    {
+        Assert.False(RustinelAlertSource.TryValidate(_baseDirectory, out var missingDirectoryError));
+        Assert.Contains("log directory does not exist", missingDirectoryError);
+
+        Directory.CreateDirectory(Path.Combine(_baseDirectory, "logs"));
+        Assert.False(RustinelAlertSource.TryValidate(_baseDirectory, out var missingFileError));
+        Assert.Contains("No Rustinel alert files", missingFileError);
+
+        File.WriteAllText(Path.Combine(_baseDirectory, "logs", "alerts.json.2026-10-24"), RealRustinelAlert);
+        Assert.True(RustinelAlertSource.TryValidate(_baseDirectory, out var successError));
+        Assert.Equal(string.Empty, successError);
+    }
+
+    [Fact]
     public void GetEdrAlerts_ParsesRealRustinelAlert()
     {
         Directory.CreateDirectory(Path.Combine(_baseDirectory, "logs"));
