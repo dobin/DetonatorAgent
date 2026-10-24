@@ -19,6 +19,7 @@
   <!-- Expose WINDOWS_BUILD as a C# preprocessor symbol so Program.cs can
        guard the one call site that references Windows-only extension methods. -->
   <PropertyGroup Condition="'$(IsWindowsBuild)' == 'true'">
+    <TargetFramework>net8.0-windows7.0</TargetFramework>
     <DefineConstants>$(DefineConstants);WINDOWS_BUILD</DefineConstants>
   </PropertyGroup>
 
@@ -33,7 +34,7 @@
     <PackageReference Include="AutoItX.Dotnet" Version="3.3.14.5" />
     <PackageReference Include="FlaUI.Core" Version="5.0.0" />
     <PackageReference Include="FlaUI.UIA3" Version="5.0.0" />
-    <PackageReference Include="System.Diagnostics.EventLog" Version="8.0.0" />
+    <PackageReference Include="System.Diagnostics.EventLog" Version="8.0.1" />
     <PackageReference Include="System.Management" Version="10.0.1" />
     <Reference Include="AutoItX3.Assembly">
       <HintPath>$(USERPROFILE)\.nuget\packages\autoitx.dotnet\3.3.14.5\lib\AutoItX3.Assembly.dll</HintPath>
