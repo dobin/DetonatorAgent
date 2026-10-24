@@ -13,6 +13,9 @@ public class CommandLineOptions
     [Option('e', "edr", Default = "", HelpText = "EDR plugin to use. Use '--edr ?' to list available plugins on this OS. Default: platform-specific (defender on Windows, logfile on Linux).")]
     public string Edr { get; set; } = "";
 
+    [Option("rustinel-dir", HelpText = "Rustinel base directory. Required when using '--edr rustinel'; overrides DETONATOR_RUSTINEL_DIR.")]
+    public string? RustinelDirectory { get; set; }
+
     [Option("help", HelpText = "Display this help text")]
     public bool Help { get; set; }
 }

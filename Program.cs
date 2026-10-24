@@ -11,6 +11,7 @@ var parseResult = Parser.Default.ParseArguments<CommandLineOptions>(args)
     .WithParsed(opts => {
         options.Port = opts.Port;
         options.Edr = opts.Edr;
+        options.RustinelDirectory = opts.RustinelDirectory;
     })
     .WithNotParsed(errors => {
         // If help was requested or parsing failed, exit
@@ -56,6 +57,28 @@ if (edrPluginType is null)
 {
     Console.WriteLine($"Unknown EDR plugin '{options.Edr}'. Available on this OS: {availableNames}");
     Environment.Exit(1);
+}
+
+// Rustinel stores its alert files below a user-supplied base directory. The
+// explicit command-line option takes precedence over the environment fallback.
+if (string.Equals(options.Edr, "rustinel", StringComparison.OrdinalIgnoreCase))
+{
+    var rustinelDirectory = string.IsNullOrWhiteSpace(options.RustinelDirectory)
+        ? Environment.GetEnvironmentVariable("DETONATOR_RUSTINEL_DIR")
+        : options.RustinelDirectory;
+
+    if (string.IsNullOrWhiteSpace(rustinelDirectory))
+    {
+        Console.WriteLine("The Rustinel EDR plugin requires --rustinel-dir <PATH> or DETONATOR_RUSTINEL_DIR.");
+        Environment.Exit(1);
+    }
+
+    options.RustinelDirectory = Path.GetFullPath(rustinelDirectory);
+    if (!Directory.Exists(options.RustinelDirectory))
+    {
+        Console.WriteLine($"Rustinel base directory does not exist: {options.RustinelDirectory}");
+        Environment.Exit(1);
+    }
 }
 
 // Configure Kestrel to accept larger request bodies (100MB)
@@ -111,6 +134,8 @@ builder.Services.AddLinuxExecutionServices();
 
 // Register the selected EDR plugin (discovered via EdrPluginRegistry).
 builder.Services.AddSingleton(typeof(IEdrService), edrPluginType!);
+if (!string.IsNullOrWhiteSpace(options.RustinelDirectory))
+    builder.Services.AddSingleton(new RustinelPluginOptions(options.RustinelDirectory));
 
 var app = builder.Build();
 

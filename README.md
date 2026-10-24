@@ -121,6 +121,7 @@ the current OS.
 Windows-only:
 * `defender` — Windows Defender (default on Windows)
 * `fibratus` — Windows Fibratus
+* `rustinel` — Windows Rustinel
 
 Cross-platform:
 * `logfile` — reads alerts from a plain text log file (default on Linux)
@@ -157,6 +158,29 @@ alertsenders:
   eventlog:
     format: json
 ```
+
+### EDR: Rustinel
+
+Rustinel alerts are written as ECS NDJSON files, one JSON alert per line, at
+`<rustinel-base>\logs\alerts.json.<UTC-date>`. Configure the Rustinel base
+directory when selecting this plugin:
+
+```powershell
+dotnet run -- --edr rustinel --rustinel-dir "C:\ProgramData\Rustinel"
+```
+
+Alternatively, set `DETONATOR_RUSTINEL_DIR` before starting the agent:
+
+```powershell
+$env:DETONATOR_RUSTINEL_DIR = "C:\ProgramData\Rustinel"
+dotnet run -- --edr rustinel
+```
+
+`--rustinel-dir` takes precedence over `DETONATOR_RUSTINEL_DIR`. The selected
+base directory must already exist. DetonatorAgent reads only
+`alerts.json.<UTC-date>` files that overlap its collection window, including a
+UTC midnight rotation. 
+
 
 ## Linux support
 

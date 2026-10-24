@@ -49,6 +49,12 @@
     <Compile Remove="Services\WindowsStartupExtensions.cs" />
     <Compile Remove="EdrPlugins\DefenderEdrPlugin.cs" />
     <Compile Remove="EdrPlugins\FibratusEdrPlugin.cs" />
+    <Compile Remove="EdrPlugins\RustinelEdrPlugin.cs" />
+  </ItemGroup>
+
+  <!-- The web project must not compile source belonging to the sibling test project. -->
+  <ItemGroup>
+    <Compile Remove="DetonatorAgent.Tests\**\*.cs" />
   </ItemGroup>
 
   <!-- LinuxStartupExtensions.cs uses only cross-platform types and is

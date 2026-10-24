@@ -92,6 +92,50 @@ DetonatorAgent will attempt to parse, and generate:
 }
 
 
+## Plugin: Rustinel
+
+`RustinelEdrPlugin` reads Rustinel's ECS NDJSON alert stream from the supplied
+Rustinel base directory. It derives the daily file name from the collection
+window in UTC:
+
+```
+<rustinel-base>\logs\alerts.json.2026-08-16
+```
+
+For each record where `event.kind` is `alert`, the plugin maps the ECS document
+to DetonatorAgent's alert response:
+
+```json
+{
+	"@timestamp": "2026-08-16T21:00:05Z",
+	"event.kind": "alert",
+	"event.category": ["process"],
+	"event.dataset": "edr.process",
+	"event.provider": "etw",
+	"edr.event.ingest_seq": 42,
+	"rule.name": "Example - Whoami Execution (Windows)",
+	"rule.id": "sigma::d3b073c6-e265-4f40-a1c1-42e8f17a9c67",
+	"edr.rule.severity": "Low",
+	"edr.rule.engine": "Sigma",
+	"agent.version": "1.10.0"
+}
+```
+
+| Rustinel field | DetonatorAgent field |
+| --- | --- |
+| `rule.name` | `title` |
+| `edr.rule.severity` | `severity` |
+| first `event.category` item, falling back to `event.dataset` | `category` |
+| `edr.rule.engine`, falling back to `event.provider` | `detectionSource` |
+| `@timestamp` | `detectedAt` |
+| complete NDJSON document | `raw` |
+| `rule.id`, `event.code`, `event.dataset`, `event.provider`, `event.count`, `edr.event.ingest_seq` | `additionalData` |
+
+The plugin creates a deterministic `alertId` from the daily source filename,
+line number, and record content. This makes repeated `/api/logs/edr` calls
+stable while keeping separate records distinct. It filters alerts to the active
+collection window and skips malformed or non-alert lines.
+
 ## Plugin: Fibratus
 
 ```
